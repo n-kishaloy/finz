@@ -14,6 +14,11 @@ module Finz
     ,   fvAnnuity
     ,   pmt 
     ,   fmt 
+    ,   fv
+    ,   fvm
+    ,   fvc 
+    ,   effectiveRate
+    ,   effectiveRateCont
     ) where
 
 
@@ -43,3 +48,6 @@ fmt fv r n m = fv * (r/m) / ((1 + r/m)**(n*m) - 1)
 fv pv r n = pv*(1+r)**n
 fvm pv r n m = pv*(1+r/m)**(n*m)
 fvc fv r n = fv*(exp (r*n))
+
+effectiveRate r m = (1 + r/m)**m - 1
+effectiveRateCont r = (exp r) - 1

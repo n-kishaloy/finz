@@ -38,6 +38,11 @@ main = do
     quickCheck $ F.pvm 12_704_891.6109538 0.06 4 12 ~= 10_000_000
     quickCheck $ F.pvc 11_735.108709918102 0.08 2 ~= 10_000
 
+    print "FV "
+    quickCheck $ F.fv 6_499_313.862983452 0.09 5 ~= 10_000_000
+    quickCheck $ F.fvm 10_000_000 0.06 4 12 ~= 12_704_891.6109538
+    quickCheck $ F.fvc 10_000 0.08 2 ~= 11_735.108709918102
+
     print "PV Annuity "
     quickCheck $ F.pvAnnuity 7.33764573879378 0.08 30 12 ~= 1000
     quickCheck $ F.pvAnnuityCont 100 0.05 ~= 2000
@@ -46,3 +51,7 @@ main = do
     quickCheck $ F.fmt 54_304.2278549568 0.24 5 3 ~= 2000
 
     quickCheck $ F.pv (F.pvAnnuity 1e+6 0.05 30 1) 0.05 9 ~= 9_909_218.99605011
+
+    print "Effective rates"
+    quickCheck $ F.effectiveRate 0.08 2 ~= 0.0816
+    quickCheck $ F.effectiveRateCont 0.08 ~= 0.08328706767495864
