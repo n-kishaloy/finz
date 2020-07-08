@@ -36,10 +36,14 @@ packages:
 #
 # extra-deps:
 # - acme-missiles-0.3
-# - git: https://github.com/commercialhaskell/stack.git
-#   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
+# - git: https://github.com/n-kishaloy/utilz.git
+#   commit: e9b2b598d77c1cd84b402e91cc4fb61c972dfc6c
 #
-# extra-deps: []
+extra-deps:
+
+- git: https://github.com/n-kishaloy/utilz.git
+  commit: 0be786228777e423a2aed6873415031de67d014f
+
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

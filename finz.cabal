@@ -15,29 +15,39 @@ extra-source-files:   README.md
 
 executable finz
   hs-source-dirs:       src
-  ghc-options:          -Wall -fwarn-tabs 
+  ghc-options:          -O -Wall -fwarn-tabs 
   main-is:              Main.hs
   default-language:     Haskell2010
   build-depends:        base >= 4.7 && < 5
                   ,     containers  
-                  ,     hspec
-                  ,     QuickCheck
+                  ,     time
                   ,     vector
                   ,     finz
+                  ,     deepseq
+                  ,     utilz
+                  ,     lens
+                  ,     hashable
+                  ,     unordered-containers
 
 library
-    exposed-modules:    Finz
-    ghc-options:        -Wall -fwarn-tabs 
+    exposed-modules:    Finz, Finz.Statements
+    ghc-options:        -O -Wall -fwarn-tabs 
     build-depends:      base >= 4.7 && < 5
                   ,     containers
+                  ,     time
                   ,     hspec
                   ,     QuickCheck
                   ,     vector
+                  ,     deepseq
+                  ,     utilz
+                  ,     lens
+                  ,     hashable
+                  ,     unordered-containers
     hs-source-dirs:     src 
     default-language:   Haskell2010
 
 test-suite tests
-    ghc-options:        -Wall -fno-warn-orphans 
+    ghc-options:        -O -Wall -fno-warn-orphans 
     type:               exitcode-stdio-1.0
     main-is:            tests.hs 
     hs-source-dirs:     tests 
@@ -45,7 +55,13 @@ test-suite tests
                     ,   containers
                     ,   hspec
                     ,   QuickCheck
+                    ,   time
                     ,   finz
+                    ,   utilz
                     ,   vector
+                    ,   deepseq
+                    ,   hashable
+                    ,   lens
+                    ,   unordered-containers
     default-language:   Haskell2010
 

@@ -1,1 +1,5 @@
 .stack-work
+*.exe
+*.hi
+*.o
+*.prof
