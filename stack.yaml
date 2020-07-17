@@ -42,7 +42,7 @@ packages:
 extra-deps:
 
 - git: https://github.com/n-kishaloy/utilz.git
-  commit: 0be786228777e423a2aed6873415031de67d014f
+  commit: 2eb6f3283a5cb491f129d3416a64b88cb4cbd54a
 
 
 # Override default flag values for local packages and extra-deps

@@ -5,19 +5,16 @@
 
 packages:
 - completed:
-    cabal-file:
-      size: 2032
-      sha256: e582e83ea73b258cade2641cfdcdb592e629eabd32c2a57fdbf5f3430735edb7
     name: utilz
     version: 0.1.0.0
     git: https://github.com/n-kishaloy/utilz.git
     pantry-tree:
       size: 852
-      sha256: ed2d05778752fa3f1b64ff0ddc5423853c56013a484db13bc492d0124511aade
-    commit: 0be786228777e423a2aed6873415031de67d014f
+      sha256: ed14251d0f7d18440505cf4d10af205ea2c3df6275178f489375408109ec6f7a
+    commit: 2eb6f3283a5cb491f129d3416a64b88cb4cbd54a
   original:
     git: https://github.com/n-kishaloy/utilz.git
-    commit: 0be786228777e423a2aed6873415031de67d014f
+    commit: 2eb6f3283a5cb491f129d3416a64b88cb4cbd54a
 snapshots:
 - completed:
     size: 491372

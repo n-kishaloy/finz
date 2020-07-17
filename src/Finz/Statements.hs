@@ -1,8 +1,7 @@
 {-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE Strict #-}
 {-# LANGUAGE TemplateHaskell, FunctionalDependencies, FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
--- {-# LANGUAGE InstanceSigs #-}
 
 module Finz.Statements
 (   BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statementz (..)
@@ -25,17 +24,17 @@ import Utilz.Numeric (Approx (..))
 import Control.Lens
 -- import Control.Lens.TH
 
-data Checker = Checker { checkerStatuz :: !Int } deriving (Show)
+data Checker = Checker { checkerStatuz :: Int } deriving (Show)
 makeFields ''Checker
 
-data Shaker = Shaker { shakerStatuz :: !Int } deriving (Show)
+data Shaker = Shaker { shakerStatuz :: Int } deriving (Show)
 makeFields ''Shaker
 
 data CheckShake = CheckShake 
-    {   checkShakeChk :: !Checker
-    ,   checkShakeShk :: !Shaker
-    ,   checkShakeStatuz :: !Int 
-    ,   checkShakeChecker :: !Int
+    {   checkShakeChk :: Checker
+    ,   checkShakeShk :: Shaker
+    ,   checkShakeStatuz :: Int 
+    ,   checkShakeChecker :: Int
     } deriving (Show)
 
 makeFields ''CheckShake
@@ -107,9 +106,9 @@ data BsTyp =
 instance Hashable BsTyp
 
 data BalanceSheet = BalanceSheet 
-    {   balanceSheetDatez       :: !Day
-    ,   balanceSheetStatuz      :: !Statuz
-    ,   balanceSheetRec         :: !(Hm.HashMap BsTyp Double)
+    {   balanceSheetDatez       :: Day
+    ,   balanceSheetStatuz      :: Statuz
+    ,   balanceSheetRec         :: Hm.HashMap BsTyp Double
 
     } deriving (Show, FinStat)
 
@@ -153,10 +152,10 @@ data PlTyp =
 instance Hashable PlTyp
 
 data ProfitLoss = ProfitLoss
-    {   profitLossBeginDate     :: !Day
-    ,   profitLossEndDate       :: !Day
-    ,   profitLossStatuz        :: !Statuz
-    ,   profitLossRec           :: !(Hm.HashMap PlTyp Double)
+    {   profitLossBeginDate     :: Day
+    ,   profitLossEndDate       :: Day
+    ,   profitLossStatuz        :: Statuz
+    ,   profitLossRec           :: Hm.HashMap PlTyp Double
 
     } deriving (Show, FinStat)
 
@@ -198,22 +197,22 @@ data CfTyp =
 instance Hashable CfTyp
 
 data CashFlow = CashFlow
-    {   cashFlowBeginDate       :: !Day
-    ,   cashFlowEndDate         :: !Day
-    ,   cashFlowStatuz          :: !Statuz
-    ,   cashFlowRec             :: !(Hm.HashMap CfTyp Double)
+    {   cashFlowBeginDate       :: Day
+    ,   cashFlowEndDate         :: Day
+    ,   cashFlowStatuz          :: Statuz
+    ,   cashFlowRec             :: Hm.HashMap CfTyp Double
 
     } deriving (Show, FinStat)
 
 makeFields ''CashFlow
 
 data Statementz = Statementz
-    {   statementzBeginDate         :: !Day
-    ,   statementzEndDate           :: !Day
-    ,   statementzBalanceSheetBegin :: !BalanceSheet
-    ,   statementzBalanceSheetEnd   :: !BalanceSheet
-    ,   statementzProfitLoss        :: !ProfitLoss
-    ,   statementzCashFlow          :: !CashFlow
+    {   statementzBeginDate         :: Day
+    ,   statementzEndDate           :: Day
+    ,   statementzBalanceSheetBegin :: BalanceSheet
+    ,   statementzBalanceSheetEnd   :: BalanceSheet
+    ,   statementzProfitLoss        :: ProfitLoss
+    ,   statementzCashFlow          :: CashFlow
 
     } deriving (Show)
 
@@ -225,16 +224,16 @@ instance Approx CfTyp where x =~ y = (x == y)
 
 -- TODO: Add your code here
 instance Approx BalanceSheet where 
-    (!x) =~ (!y) = undefined 
+    x =~ y = undefined 
 
 instance Approx ProfitLoss where 
-    (!x) =~ (!y) = undefined
+    x =~ y = undefined
 
 instance Approx CashFlow where 
-    (!x) =~ (!y) = undefined
+    x =~ y = undefined
 
 instance Approx Statementz where 
-    (!x) =~ (!y) = undefined
+    x =~ y = undefined
 
 class GetRecords a b where
     (!!>) :: (FinStat a, FinType b) => a -> b -> Double         -- Get
@@ -243,40 +242,40 @@ class GetRecords a b where
     (!!+) :: (FinStat a, FinType b) => a -> (b,Double) -> a     -- Add/Create 
 
     (!!++) :: (FinStat a, FinType b) => a -> [(b,Double)] -> a -- List Add
-    (!!++) !x [] = x
-    (!!++) !x (!y:(!ys)) = (x !!+ y) !!++ ys
+    (!!++) x [] = x
+    (!!++) x (y:ys) = (x !!+ y) !!++ ys
 
     (!!%) :: (FinStat a, FinType b) => a -> (b,Double) -> a     -- Update/Create
 
     (!!%%) :: (FinStat a, FinType b) => a -> [(b,Double)] -> a -- List Upd
-    (!!%%) !x [] = x
-    (!!%%) !x (!y:(!ys)) = (x !!% y) !!%% ys
+    (!!%%) x [] = x
+    (!!%%) x (y:ys) = (x !!% y) !!%% ys
 
     recToList :: (FinStat a, FinType b) => a -> [(b,Double)]    -- Rec to List
 
 instance GetRecords BalanceSheet BsTyp where
-    (!!>) !x !t = Hm.lookupDefault 0.0 t (x^.rec)
-    (!!?) !x !t = Hm.lookup t (x^.rec)
-    (!!~) !x !r = x & rec .~ (Hm.fromList r)
-    (!!+) !x (!k,!v) = x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
-    (!!%) !x (!k,!v) = x & rec .~ (Hm.insert k v (x^.rec))
-    recToList !x = Hm.toList (x^.rec)
+    (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
+    (!!?) x t = Hm.lookup t (x^.rec)
+    (!!~) x r = x & rec .~ (Hm.fromList r)
+    (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
+    (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
+    recToList x = Hm.toList (x^.rec)
 
 instance GetRecords ProfitLoss PlTyp where
-    (!!>) !x !t = Hm.lookupDefault 0.0 t (x^.rec)
-    (!!?) !x !t = Hm.lookup t (x^.rec)
-    (!!~) !x !r = x & rec .~ (Hm.fromList r)
-    (!!+) !x (!k,(!v)) = x & rec .~ (Hm.insertWith (\nw ol->nw+ol) k v (x^.rec))
-    (!!%) !x (!k,!v) = x & rec .~ (Hm.insert k v (x^.rec))
-    recToList !x = Hm.toList (x^.rec)
+    (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
+    (!!?) x t = Hm.lookup t (x^.rec)
+    (!!~) x r = x & rec .~ (Hm.fromList r)
+    (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol->nw+ol) k v (x^.rec))
+    (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
+    recToList x = Hm.toList (x^.rec)
 
 instance GetRecords CashFlow CfTyp where
-    (!!>) !x !t = Hm.lookupDefault 0.0 t (x^.rec)
-    (!!?) !x !t = Hm.lookup t (x^.rec)
-    (!!~) !x !r = x & rec .~ (Hm.fromList r)
-    (!!+) !x (!k,!v) = x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
-    (!!%) !x (!k,!v) = x & rec .~ (Hm.insert k v (x^.rec))
-    recToList !x = Hm.toList (x^.rec)
+    (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
+    (!!?) x t = Hm.lookup t (x^.rec)
+    (!!~) x r = x & rec .~ (Hm.fromList r)
+    (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
+    (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
+    recToList x = Hm.toList (x^.rec)
 
 class GetJsonz a where
     toJsonz :: FinStat a => a -> String
