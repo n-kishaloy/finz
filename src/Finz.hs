@@ -3,37 +3,37 @@
 
 
 module Finz 
-    (   timeMul
-    ,   timeMulSub
-    ,   rate
-    ,   period
-    ,   pv
-    ,   pvm
-    ,   pvc
-    ,   pvAnnuity
-    ,   pvAnnuityCont
-    ,   fvAnnuity
-    ,   pmt 
-    ,   fmt 
-    ,   fv
-    ,   fvm
-    ,   fvc 
-    ,   effectiveRate
-    ,   effectiveRateCont
-    ,   npv
-    ,   npvN
-    ,   npvT
-    ,   npvNT
-    ,   irr
-    ,   twrr
-    ,   twrrN
-    ,   tBillR
-    ,   tBillD
-    ,   holdPerYd
-    ,   effAnnYd
-    ,   moneyMktYd
-    ,   sharpe
-    ) where
+  ( timeMul
+  , timeMulSub
+  , rate
+  , period
+  , pv
+  , pvm
+  , pvc
+  , pvAnnuity
+  , pvAnnuityCont
+  , fvAnnuity
+  , pmt 
+  , fmt 
+  , fv
+  , fvm
+  , fvc 
+  , effectiveRate
+  , effectiveRateCont
+  , npv
+  , npvN
+  , npvT
+  , npvNT
+  , irr
+  , twrr
+  , twrrN
+  , tBillR
+  , tBillD
+  , holdPerYd
+  , effAnnYd
+  , moneyMktYd
+  , sharpe
+  ) where
 
 import Utilz.Numeric ((=~),(/~),dot,(+^), (-^), (*^), (/^), DVec)
 import qualified Utilz.Numeric.Optima as Op
@@ -110,13 +110,13 @@ irr cf = Op.newtRP (npvNT cf) 0.0
 
 twrr :: DVec -> DVec -> Double
 twrr bv bi = (\x-> x**(1/(fromIntegral n)) - 1) $ U.product $ runST $ do 
-    U.forM (U.fromList [0..(n-1)]) $ \i -> do return $ bv!(i+1)/(bv!i + bi!i)
-    where n = U.length bv - 1
+  U.forM (U.fromList [0..(n-1)]) $ \i -> do return $ bv!(i+1)/(bv!i + bi!i)
+  where n = U.length bv - 1
 
 twrrN :: Double -> DVec -> DVec -> Double
 twrrN n bv bi = (\x-> x**(1/n) - 1) $ U.product $ runST $ do 
-    U.forM (U.fromList [0..(U.length bv - 2)]) $ \i -> do 
-        return $ bv!(i+1)/(bv!i + bi!i)
+  U.forM (U.fromList [0..(U.length bv - 2)]) $ \i -> do 
+    return $ bv!(i+1)/(bv!i + bi!i)
 
 tBillR :: Double -> Double -> Double -> Double
 tBillR t p0 f = (1.0 - p0/f) * 360.0/t
