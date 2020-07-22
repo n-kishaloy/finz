@@ -10,11 +10,11 @@ packages:
     git: https://github.com/n-kishaloy/utilz.git
     pantry-tree:
       size: 852
-      sha256: 2b3dabfcb91e0ed5eb26867000b727823d298deae4bb1f346820c8b13dd17a99
-    commit: 0a4784309c79f5b44a02ba2ba2bbf7cb16c05c86
+      sha256: bbf2b5e90e1d21f1486b09d50a656881e02fec034e186cea77db1b55b567844a
+    commit: 790a4cb85adfb40afb4b42e9055ed49f991d8191
   original:
     git: https://github.com/n-kishaloy/utilz.git
-    commit: 0a4784309c79f5b44a02ba2ba2bbf7cb16c05c86
+    commit: 790a4cb85adfb40afb4b42e9055ed49f991d8191
 snapshots:
 - completed:
     size: 491372
