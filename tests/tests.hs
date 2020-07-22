@@ -107,14 +107,14 @@ main = do
   print $ ("Hi", xs)
 
   let bs = S.BalanceSheet {
-          S.balanceSheetDatez = (fromGregorian 2018 3 31),
-          S.balanceSheetStatuz = S.Unset,
-          S.balanceSheetRec = 
-              Hm.fromList [ 
-                      (Cash,                30.45)
-                  ,   (CurrentReceivables,  80.56) 
-                  ]
-      }
+      S.balanceSheetDatez = (fromGregorian 2018 3 31),
+      S.balanceSheetStatuz = S.Unset,
+      S.balanceSheetRec = 
+        Hm.fromList [ 
+              (Cash,                30.45)
+          ,   (CurrentReceivables,  80.56) 
+          ]
+    }
 
   let xs = bs & S.datez .~ (fromGregorian 2018 3 30) 
   let bs = xs !!~ [ 
@@ -142,15 +142,15 @@ main = do
 
 
   let pl = S.ProfitLoss {
-          S.profitLossBeginDate = (fromGregorian 2018 3 31),
-          S.profitLossEndDate = (fromGregorian 2018 3 31),
-          S.profitLossStatuz = S.Unset,
-          S.profitLossRec = 
-              Hm.fromList [ 
-                      (S.OperatingRevenue,    58.35)
-                  ,   (S.OtherExpenses,       41.58) 
-              ]
-      }
+      S.profitLossBeginDate = (fromGregorian 2018 3 31),
+      S.profitLossEndDate = (fromGregorian 2018 3 31),
+      S.profitLossStatuz = S.Unset,
+      S.profitLossRec = 
+        Hm.fromList [ 
+                (S.OperatingRevenue,    58.35)
+            ,   (S.OtherExpenses,       41.58) 
+          ]
+}
 
   quickCheck $ pl !!> OperatingRevenue =~ 58.35
   quickCheck $ pl !!> Pat =~ 0.0
@@ -158,15 +158,15 @@ main = do
   quickCheck $ pl !!? Pat == Nothing
 
   let cf = S.CashFlow {
-          S.cashFlowBeginDate = (fromGregorian 2018 3 31),
-          S.cashFlowEndDate = (fromGregorian 2018 3 31),
-          S.cashFlowStatuz = S.Unset,
-          S.cashFlowRec = 
-              Hm.fromList [ 
-                      (S.CashFlowOperations,  38.35)
-                  ,   (S.OtherCfInvestments,  48.58) 
-              ]
-      }
+      S.cashFlowBeginDate = (fromGregorian 2018 3 31),
+      S.cashFlowEndDate = (fromGregorian 2018 3 31),
+      S.cashFlowStatuz = S.Unset,
+      S.cashFlowRec = 
+        Hm.fromList [ 
+              (S.CashFlowOperations,  38.35)
+          ,   (S.OtherCfInvestments,  48.58) 
+        ]
+    }
 
   let xs = cf
   let cf = xs !!++ [
@@ -190,8 +190,8 @@ main = do
   print cf
 
   quickCheck $ ((S.recToList cf) :: [(CfTyp,Double)]) =~ [
-      (DisPpe,22.25),(CfInvestmentDividends,78.58),
-      (OtherCfInvestments,68.58),(CashFlowOperations,38.35)]
+    (DisPpe,22.25),(CfInvestmentDividends,78.58),
+    (OtherCfInvestments,68.58),(CashFlowOperations,38.35)]
 
   quickCheck $ Cash =~ Cash
   quickCheck $ Cash /~ CurrentAdvances
