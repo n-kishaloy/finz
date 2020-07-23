@@ -286,11 +286,16 @@ wrJson s = undefined
 
 class GetPSQLArray b where
   readPSQLArray :: String -> Hm.HashMap b Double
-  readPSQLArray s = undefined
-
   writePSQLArray :: Hm.HashMap b Double -> String
+
+instance GetPSQLArray BsTyp where 
+  readPSQLArray s = undefined
   writePSQLArray x = undefined
 
-instance GetPSQLArray BsTyp
-instance GetPSQLArray PlTyp
-instance GetPSQLArray CfTyp
+instance GetPSQLArray PlTyp where
+  readPSQLArray s = undefined
+  writePSQLArray x = undefined
+
+instance GetPSQLArray CfTyp where
+  readPSQLArray s = undefined
+  writePSQLArray x = undefined
