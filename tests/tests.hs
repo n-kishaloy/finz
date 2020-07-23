@@ -75,6 +75,8 @@ main = do
 
   quickCheck $ F.irr (U.fromList [-2.0, 0.5, 0.75, 1.35]) =~ (Just 0.12129650314520722)
 
+  quickCheck $ F.xirr (U.fromList [0.125,0.29760274,0.49760274,0.55239726,0.812671233]) (U.fromList [-10.25,-2.5,3.5,9.5,1.25]) =~ (Just  0.31813386476788824)
+
   print "TWRR"
   quickCheck $ F.twrr (U.fromList [4,6,5.775,6.72,5.508])(U.fromList [1,-0.5,0.225,-0.6]) =~ 0.06159232319186159
 

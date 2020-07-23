@@ -25,6 +25,7 @@ module Finz
   , npvT
   , npvNT
   , irr
+  , xirr
   , twrr
   , twrrN
   , tBillR
@@ -107,6 +108,9 @@ npvNT cf r = (U.sum $ U.zipWith (\c t->c/r1**t) cf (U.fromList [0.0,1.0..fromInt
 
 irr :: DVec -> Maybe Double
 irr cf = Op.newtRP (npvNT cf) 0.0
+
+xirr :: DVec -> DVec -> Maybe Double
+xirr tim cf = Op.newtRP (npvT tim cf) 0.0
 
 twrr :: DVec -> DVec -> Double
 twrr bv bi = (\x-> x**(1/(fromIntegral n)) - 1) $ U.product $ runST $ do 
