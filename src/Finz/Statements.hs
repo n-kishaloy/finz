@@ -11,7 +11,6 @@ module Finz.Statements
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..)
 , GetRecords (..)
-, GetPSQLArray (..)
 
 ) where
 
