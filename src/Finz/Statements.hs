@@ -12,6 +12,7 @@ module Finz.Statements
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..)
 , GetRecords (..)
+, GetPSQLArray (..), GetJsonz (..)
 
 ) where
 
@@ -289,5 +290,20 @@ rdJson s = undefined
 wrJson :: Statementz -> String
 wrJson s = undefined
 
--- class GetPSQLArray a b where
---   readPSQLArray :: [C.ByteString] -> Hm.HashMap 
+class FinType a => GetPSQLArray a where
+  readPSQLArray :: [C.ByteString] -> Hm.HashMap a Double
+  writePSQLArray :: Hm.HashMap a Double -> [C.ByteString]
+
+instance GetPSQLArray BsTyp where
+  readPSQLArray x = undefined
+  writePSQLArray s = undefined
+
+instance GetPSQLArray PlTyp where
+  readPSQLArray x = undefined
+  writePSQLArray s = undefined
+
+instance GetPSQLArray CfTyp where
+  readPSQLArray x = undefined
+  writePSQLArray s = undefined
+
+
