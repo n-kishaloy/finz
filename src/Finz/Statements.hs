@@ -6,6 +6,7 @@
 module Finz.Statements
 ( BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statementz (..)
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
+, BsMap, PlMap, CfMap
 , HasStatuz (..), HasRec (..)
 , HasDatez (..), HasBeginDate (..), HasEndDate (..)
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
@@ -106,10 +107,12 @@ data BsTyp =
 
 instance Hashable BsTyp
 
+type BsMap = Hm.HashMap BsTyp Double
+
 data BalanceSheet = BalanceSheet 
   { balanceSheetDatez       :: Day
   , balanceSheetStatuz      :: Statuz
-  , balanceSheetRec         :: Hm.HashMap BsTyp Double
+  , balanceSheetRec         :: BsMap
   } deriving (Show, FinStat)
 
 makeFields ''BalanceSheet
@@ -150,12 +153,13 @@ data PlTyp =
   deriving (Eq, Show, Ord, Generic, FinType)
 
 instance Hashable PlTyp
+type PlMap = Hm.HashMap PlTyp Double
 
 data ProfitLoss = ProfitLoss
   { profitLossBeginDate     :: Day
   , profitLossEndDate       :: Day
   , profitLossStatuz        :: Statuz
-  , profitLossRec           :: Hm.HashMap PlTyp Double
+  , profitLossRec           :: PlMap
   } deriving (Show, FinStat)
 
 makeFields ''ProfitLoss
@@ -194,12 +198,13 @@ data CfTyp =
   deriving (Eq, Show, Ord, Generic, FinType)
 
 instance Hashable CfTyp
+type CfMap = Hm.HashMap CfTyp Double
 
 data CashFlow = CashFlow
   { cashFlowBeginDate       :: Day
   , cashFlowEndDate         :: Day
   , cashFlowStatuz          :: Statuz
-  , cashFlowRec             :: Hm.HashMap CfTyp Double
+  , cashFlowRec             :: CfMap
   } deriving (Show, FinStat)
 
 makeFields ''CashFlow
@@ -284,3 +289,5 @@ rdJson s = undefined
 wrJson :: Statementz -> String
 wrJson s = undefined
 
+-- class GetPSQLArray a b where
+--   readPSQLArray :: [C.ByteString] -> Hm.HashMap 

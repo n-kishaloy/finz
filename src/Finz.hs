@@ -3,36 +3,13 @@
 
 
 module Finz 
-  ( timeMul
-  , timeMulSub
-  , rate
-  , period
-  , pv
-  , pvm
-  , pvc
-  , pvAnnuity
-  , pvAnnuityCont
-  , fvAnnuity
-  , pmt 
-  , fmt 
-  , fv
-  , fvm
-  , fvc 
-  , effectiveRate
-  , effectiveRateCont
-  , npv
-  , npvN
-  , npvT
-  , npvNT
-  , irr
-  , xirr
-  , twrr
-  , twrrN
-  , tBillR
-  , tBillD
-  , holdPerYd
-  , effAnnYd
-  , moneyMktYd
+  ( timeMul, timeMulSub
+  , rate, period
+  , pv, pvm, pvc, pvAnnuity, pvAnnuityCont, fvAnnuity, pmt 
+  , fmt, fv, fvm, fvc 
+  , effectiveRate, effectiveRateCont
+  , npv, npvN, npvT, npvNT, irr, xirr, twrr, twrrN
+  , tBillR, tBillD, holdPerYd, effAnnYd, moneyMktYd
   , sharpe
   ) where
 
