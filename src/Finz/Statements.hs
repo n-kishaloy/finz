@@ -1,5 +1,5 @@
 {-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE Strict #-}
+{-# LANGUAGE Strict, OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell, FunctionalDependencies, FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
@@ -19,6 +19,7 @@ import GHC.Generics (Generic)
 import Data.Hashable
 import Data.Time (Day)
 import qualified Data.HashMap.Strict as Hm
+import qualified Data.ByteString.Char8 as C
 
 import Utilz.Numeric (Approx (..))
 
@@ -284,18 +285,3 @@ rdJson s = undefined
 wrJson :: Statementz -> String
 wrJson s = undefined
 
-class GetPSQLArray b where
-  readPSQLArray :: String -> Hm.HashMap b Double
-  writePSQLArray :: Hm.HashMap b Double -> String
-
-instance GetPSQLArray BsTyp where 
-  readPSQLArray s = undefined
-  writePSQLArray x = undefined
-
-instance GetPSQLArray PlTyp where
-  readPSQLArray s = undefined
-  writePSQLArray x = undefined
-
-instance GetPSQLArray CfTyp where
-  readPSQLArray s = undefined
-  writePSQLArray x = undefined
