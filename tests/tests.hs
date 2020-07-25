@@ -1,4 +1,4 @@
-{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE NumericUnderscores, OverloadedStrings #-}
 
 
 
@@ -20,6 +20,7 @@ import Data.Time (Day, fromGregorian)
 
 import qualified Data.HashMap.Strict as Hm
 import Data.HashMap.Strict ((!), lookupDefault)
+import qualified Data.ByteString.Char8 as C
 
 import Control.Lens ((^.),(.~),(&),at)
 
@@ -195,8 +196,36 @@ main = do
     (DisPpe,22.25),(CfInvestmentDividends,78.58),
     (OtherCfInvestments,68.58),(CashFlowOperations,38.35)]
 
+  print $ "Check the Fintypes"
   quickCheck $ Cash =~ Cash
   quickCheck $ Cash /~ CurrentAdvances
   quickCheck $ OperatingRevenue =~ OperatingRevenue
   quickCheck $ CashFlowFinancing /~ CashFlowInvestments
+
+  quickCheck $ S.bsTypToString S.Cash == ("Cash"::C.ByteString)
+  quickCheck $ S.bsTypToString S.CommonStock /= ("ComonStock"::C.ByteString)
+  quickCheck $ S.bsTypToString S.BondsPayable == ("BondsPayable"::C.ByteString)
+
+  quickCheck $ S.bsStringToTyp ("Cash"::C.ByteString) == Just S.Cash
+  quickCheck $ S.bsStringToTyp ("ComonStock"::C.ByteString) == Nothing
+  quickCheck $ S.bsStringToTyp ("BondsPayable"::C.ByteString) == Just S.BondsPayable
+
+  quickCheck $ S.plTypToString S.OtherIncome == ("OtherIncome"::C.ByteString)
+  quickCheck $ S.plTypToString S.Pbtx /= ("Pat"::C.ByteString)
+  quickCheck $ S.plTypToString S.Pat == ("Pat"::C.ByteString)
+
+  quickCheck $ S.plStringToTyp ("OtherIncome"::C.ByteString) == Just S.OtherIncome
+  quickCheck $ S.plStringToTyp ("OthIncome"::C.ByteString) == Nothing
+  quickCheck $ S.plStringToTyp ("Pat"::C.ByteString) == Just S.Pat
+
+  quickCheck $ S.cfTypToString S.Fcfd == ("Fcfd"::C.ByteString)
+  quickCheck $ S.cfTypToString S.Fcfe /= ("Fcff"::C.ByteString)
+  quickCheck $ S.cfTypToString S.DisPpe == ("DisPpe"::C.ByteString)
+
+  quickCheck $ S.cfStringToTyp ("Fcfd"::C.ByteString) == Just S.Fcfd
+  quickCheck $ S.cfStringToTyp ("FcFd"::C.ByteString) == Nothing
+  quickCheck $ S.cfStringToTyp ("DisPpe"::C.ByteString) == Just S.DisPpe
+
+
+  print $ "Bye"
 

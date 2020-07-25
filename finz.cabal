@@ -64,5 +64,6 @@ test-suite tests
                     ,   hashable
                     ,   lens
                     ,   unordered-containers
+                    ,   bytestring
     default-language:   Haskell2010
 
