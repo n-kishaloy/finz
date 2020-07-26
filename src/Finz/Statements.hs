@@ -216,10 +216,10 @@ makeFields ''CashFlow
 data Statementz = Statementz
   { statementzBeginDate         :: Day
   , statementzEndDate           :: Day
-  , statementzBalanceSheetBegin :: BalanceSheet
-  , statementzBalanceSheetEnd   :: BalanceSheet
-  , statementzProfitLoss        :: ProfitLoss
-  , statementzCashFlow          :: CashFlow
+  , statementzBalanceSheetBegin :: Maybe BalanceSheet
+  , statementzBalanceSheetEnd   :: Maybe BalanceSheet
+  , statementzProfitLoss        :: Maybe ProfitLoss
+  , statementzCashFlow          :: Maybe CashFlow
   } deriving (Show)
 
 makeFields ''Statementz
