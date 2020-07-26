@@ -23,7 +23,7 @@ import GHC.Generics (Generic)
 import Data.Hashable
 import Data.Time (Day)
 import qualified Data.HashMap.Strict as Hm
-import qualified Data.ByteString.Char8 as C
+import Data.Text (Text)
 
 import Utilz.Numeric (Approx (..))
 
@@ -293,7 +293,7 @@ rdJson s = undefined
 wrJson :: Statementz -> String
 wrJson s = undefined
 
-bsTypToString :: BsTyp -> C.ByteString
+bsTypToString :: BsTyp -> Text
 bsTypToString x = case x of
   Cash -> "Cash"
   CurrentReceivables -> "CurrentReceivables"
@@ -352,7 +352,7 @@ bsTypToString x = case x of
   MinorityInterests -> "MinorityInterests"
   Equity -> "Equity"
 
-bsStringToTyp :: C.ByteString -> Maybe BsTyp
+bsStringToTyp :: Text -> Maybe BsTyp
 bsStringToTyp s = case s of
   "Cash" -> Just Cash
   "CurrentReceivables" -> Just CurrentReceivables
@@ -412,7 +412,7 @@ bsStringToTyp s = case s of
   "Equity" -> Just Equity
   otherwise -> Nothing
 
-plTypToString :: PlTyp -> C.ByteString
+plTypToString :: PlTyp -> Text
 plTypToString x = case x of
   OperatingRevenue -> "OperatingRevenue"
   NonOperatingRevenue -> "NonOperatingRevenue"
@@ -447,7 +447,7 @@ plTypToString x = case x of
   OtherComprehensiveIncome -> "OtherComprehensiveIncome"
   TotalComprehensiveIncome -> "TotalComprehensiveIncome"
 
-plStringToTyp :: C.ByteString -> Maybe PlTyp
+plStringToTyp :: Text -> Maybe PlTyp
 plStringToTyp s = case s of
   "OperatingRevenue" -> Just OperatingRevenue
   "NonOperatingRevenue" -> Just NonOperatingRevenue
@@ -484,7 +484,7 @@ plStringToTyp s = case s of
   otherwise -> Nothing
 
 
-cfTypToString :: CfTyp -> C.ByteString
+cfTypToString :: CfTyp -> Text
 cfTypToString x = case x of
   ChgInventories -> "ChgInventories"
   ChgReceivables -> "ChgReceivables"
@@ -517,7 +517,7 @@ cfTypToString x = case x of
   Fcfe -> "Fcfe"
   Fcfd -> "Fcfd"
 
-cfStringToTyp :: C.ByteString -> Maybe CfTyp
+cfStringToTyp :: Text -> Maybe CfTyp
 cfStringToTyp s = case s of
   "ChgInventories" -> Just ChgInventories
   "ChgReceivables" -> Just ChgReceivables
@@ -554,8 +554,8 @@ cfStringToTyp s = case s of
 
 
 class FinType a => GetPSQLArray a where
-  readPSQLArray :: [C.ByteString] -> Hm.HashMap a Double
-  writePSQLArray :: Hm.HashMap a Double -> [C.ByteString]
+  readPSQLArray :: [Text] -> Hm.HashMap a Double
+  writePSQLArray :: Hm.HashMap a Double -> [Text]
 
 instance GetPSQLArray BsTyp where
   readPSQLArray x = undefined

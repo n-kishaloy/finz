@@ -20,7 +20,7 @@ import Data.Time (Day, fromGregorian)
 
 import qualified Data.HashMap.Strict as Hm
 import Data.HashMap.Strict ((!), lookupDefault)
-import qualified Data.ByteString.Char8 as C
+import Data.Text (Text)
 
 import Control.Lens ((^.),(.~),(&),at)
 
@@ -202,29 +202,29 @@ main = do
   quickCheck $ OperatingRevenue =~ OperatingRevenue
   quickCheck $ CashFlowFinancing /~ CashFlowInvestments
 
-  quickCheck $ S.bsTypToString S.Cash == ("Cash"::C.ByteString)
-  quickCheck $ S.bsTypToString S.CommonStock /= ("ComonStock"::C.ByteString)
-  quickCheck $ S.bsTypToString S.BondsPayable == ("BondsPayable"::C.ByteString)
+  quickCheck $ S.bsTypToString S.Cash == ("Cash"::Text)
+  quickCheck $ S.bsTypToString S.CommonStock /= ("ComonStock"::Text)
+  quickCheck $ S.bsTypToString S.BondsPayable == ("BondsPayable"::Text)
 
-  quickCheck $ S.bsStringToTyp ("Cash"::C.ByteString) == Just S.Cash
-  quickCheck $ S.bsStringToTyp ("ComonStock"::C.ByteString) == Nothing
-  quickCheck $ S.bsStringToTyp ("BondsPayable"::C.ByteString) == Just S.BondsPayable
+  quickCheck $ S.bsStringToTyp ("Cash"::Text) == Just S.Cash
+  quickCheck $ S.bsStringToTyp ("ComonStock"::Text) == Nothing
+  quickCheck $ S.bsStringToTyp ("BondsPayable"::Text) == Just S.BondsPayable
 
-  quickCheck $ S.plTypToString S.OtherIncome == ("OtherIncome"::C.ByteString)
-  quickCheck $ S.plTypToString S.Pbtx /= ("Pat"::C.ByteString)
-  quickCheck $ S.plTypToString S.Pat == ("Pat"::C.ByteString)
+  quickCheck $ S.plTypToString S.OtherIncome == ("OtherIncome"::Text)
+  quickCheck $ S.plTypToString S.Pbtx /= ("Pat"::Text)
+  quickCheck $ S.plTypToString S.Pat == ("Pat"::Text)
 
-  quickCheck $ S.plStringToTyp ("OtherIncome"::C.ByteString) == Just S.OtherIncome
-  quickCheck $ S.plStringToTyp ("OthIncome"::C.ByteString) == Nothing
-  quickCheck $ S.plStringToTyp ("Pat"::C.ByteString) == Just S.Pat
+  quickCheck $ S.plStringToTyp ("OtherIncome"::Text) == Just S.OtherIncome
+  quickCheck $ S.plStringToTyp ("OthIncome"::Text) == Nothing
+  quickCheck $ S.plStringToTyp ("Pat"::Text) == Just S.Pat
 
-  quickCheck $ S.cfTypToString S.Fcfd == ("Fcfd"::C.ByteString)
-  quickCheck $ S.cfTypToString S.Fcfe /= ("Fcff"::C.ByteString)
-  quickCheck $ S.cfTypToString S.DisPpe == ("DisPpe"::C.ByteString)
+  quickCheck $ S.cfTypToString S.Fcfd == ("Fcfd"::Text)
+  quickCheck $ S.cfTypToString S.Fcfe /= ("Fcff"::Text)
+  quickCheck $ S.cfTypToString S.DisPpe == ("DisPpe"::Text)
 
-  quickCheck $ S.cfStringToTyp ("Fcfd"::C.ByteString) == Just S.Fcfd
-  quickCheck $ S.cfStringToTyp ("FcFd"::C.ByteString) == Nothing
-  quickCheck $ S.cfStringToTyp ("DisPpe"::C.ByteString) == Just S.DisPpe
+  quickCheck $ S.cfStringToTyp ("Fcfd"::Text) == Just S.Fcfd
+  quickCheck $ S.cfStringToTyp ("FcFd"::Text) == Nothing
+  quickCheck $ S.cfStringToTyp ("DisPpe"::Text) == Just S.DisPpe
 
 
   print $ "Bye"
