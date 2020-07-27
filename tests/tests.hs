@@ -202,25 +202,13 @@ main = do
   quickCheck $ OperatingRevenue =~ OperatingRevenue
   quickCheck $ CashFlowFinancing /~ CashFlowInvestments
 
-  quickCheck $ S.bsTypToString S.Cash == ("Cash"::Text)
-  quickCheck $ S.bsTypToString S.CommonStock /= ("ComonStock"::Text)
-  quickCheck $ S.bsTypToString S.BondsPayable == ("BondsPayable"::Text)
-
   quickCheck $ S.bsStringToTyp ("Cash"::Text) == Just S.Cash
   quickCheck $ S.bsStringToTyp ("ComonStock"::Text) == Nothing
   quickCheck $ S.bsStringToTyp ("BondsPayable"::Text) == Just S.BondsPayable
 
-  quickCheck $ S.plTypToString S.OtherIncome == ("OtherIncome"::Text)
-  quickCheck $ S.plTypToString S.Pbtx /= ("Pat"::Text)
-  quickCheck $ S.plTypToString S.Pat == ("Pat"::Text)
-
   quickCheck $ S.plStringToTyp ("OtherIncome"::Text) == Just S.OtherIncome
   quickCheck $ S.plStringToTyp ("OthIncome"::Text) == Nothing
   quickCheck $ S.plStringToTyp ("Pat"::Text) == Just S.Pat
-
-  quickCheck $ S.cfTypToString S.Fcfd == ("Fcfd"::Text)
-  quickCheck $ S.cfTypToString S.Fcfe /= ("Fcff"::Text)
-  quickCheck $ S.cfTypToString S.DisPpe == ("DisPpe"::Text)
 
   quickCheck $ S.cfStringToTyp ("Fcfd"::Text) == Just S.Fcfd
   quickCheck $ S.cfStringToTyp ("FcFd"::Text) == Nothing

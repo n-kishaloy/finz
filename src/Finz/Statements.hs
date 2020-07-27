@@ -13,9 +13,7 @@ module Finz.Statements
 , HasChecker(..)
 , GetRecords (..)
 , GetPSQLArray (..), GetJsonz (..)
-, bsTypToString, bsStringToTyp
-, plTypToString, plStringToTyp
-, cfTypToString, cfStringToTyp
+, bsStringToTyp, plStringToTyp , cfStringToTyp
 
 ) where
 
@@ -23,6 +21,7 @@ import GHC.Generics (Generic)
 import Data.Hashable
 import Data.Time (Day)
 import qualified Data.HashMap.Strict as Hm
+import qualified Data.Text as T
 import Data.Text (Text)
 
 import Utilz.Numeric (Approx (..))
@@ -107,7 +106,7 @@ data BsTyp =
   AccumulatedOci                |
   MinorityInterests             |
   Equity
-  deriving (Eq, Show, Ord, Generic, FinType)
+  deriving (Eq, Show, Ord, Generic, FinType, Enum, Bounded)
 
 instance Hashable BsTyp
 
@@ -154,7 +153,7 @@ data PlTyp =
   OtherDeferredTaxes            |
   OtherComprehensiveIncome      |
   TotalComprehensiveIncome 
-  deriving (Eq, Show, Ord, Generic, FinType)
+  deriving (Eq, Show, Ord, Generic, FinType, Enum, Bounded)
 
 instance Hashable PlTyp
 type PlMap = Hm.HashMap PlTyp Double
@@ -199,7 +198,7 @@ data CfTyp =
   Fcff                          |
   Fcfe                          |
   Fcfd                 
-  deriving (Eq, Show, Ord, Generic, FinType)
+  deriving (Eq, Show, Ord, Generic, FinType, Enum, Bounded)
 
 instance Hashable CfTyp
 type CfMap = Hm.HashMap CfTyp Double
@@ -293,264 +292,23 @@ rdJson s = undefined
 wrJson :: Statementz -> String
 wrJson s = undefined
 
-bsTypToString :: BsTyp -> Text
-bsTypToString x = case x of
-  Cash -> "Cash"
-  CurrentReceivables -> "CurrentReceivables"
-  CurrentLoans -> "CurrentLoans"
-  CurrentAdvances -> "CurrentAdvances"
-  OtherCurrentAssets -> "OtherCurrentAssets"
-  CurrentInvestmentsBv -> "CurrentInvestmentsBv"
-  CurrentInvestmentsMv -> "CurrentInvestmentsMv"
-  RawMaterials -> "RawMaterials"
-  WorkInProgress -> "WorkInProgress"
-  FinishedGoods -> "FinishedGoods"
-  AccountReceivables -> "AccountReceivables"
-  LongTermLoans -> "LongTermLoans"
-  LongTermAdvances -> "LongTermAdvances"
-  LongTermInvestmentsBv -> "LongTermInvestmentsBv"
-  LongTermInvestmentsMv -> "LongTermInvestmentsMv"
-  OtherLongTermAssets -> "OtherLongTermAssets"
-  PlantPropertyEquipment -> "PlantPropertyEquipment"
-  AccumulatedDepreciation -> "AccumulatedDepreciation"
-  LeasingRentalAssset -> "LeasingRentalAssset"
-  CapitalWip -> "CapitalWip"
-  OtherTangibleAssets -> "OtherTangibleAssets"
-  IntangibleAssets -> "IntangibleAssets"
-  IntangibleAssetsDevelopment -> "IntangibleAssetsDevelopment"
-  AccumulatedAmortization -> "AccumulatedAmortization"
-  Assets -> "Assets"
-  CurrentPayables -> "CurrentPayables"
-  CurrentBorrowings -> "CurrentBorrowings"
-  CurrentNotesPayable -> "CurrentNotesPayable"
-  OtherCurrentLiabilities -> "OtherCurrentLiabilities"
-  InterestPayable -> "InterestPayable"
-  CurrentProvisions -> "CurrentProvisions"
-  CurrentTaxPayables -> "CurrentTaxPayables"
-  LiabilitiesSaleAssets -> "LiabilitiesSaleAssets"
-  CurrentLeasesLiability -> "CurrentLeasesLiability"
-  AccountPayables -> "AccountPayables"
-  LongTermBorrowings -> "LongTermBorrowings"
-  BondsPayable -> "BondsPayable"
-  DeferredTaxLiabilities -> "DeferredTaxLiabilities"
-  LongTermLeasesLiability -> "LongTermLeasesLiability"
-  DeferredCompensation -> "DeferredCompensation"
-  DeferredRevenues -> "DeferredRevenues"
-  CustomerDeposits -> "CustomerDeposits"
-  OtherLongTermLiabilities -> "OtherLongTermLiabilities"
-  PensionProvision -> "PensionProvision"
-  LongTermProvisions -> "LongTermProvisions"
-  Liabilities -> "Liabilities"
-  CommonStock -> "CommonStock"
-  PreferredStock -> "PreferredStock"
-  PdInCapAbovePar -> "PdInCapAbovePar"
-  PdInCapTreasuryStock -> "PdInCapTreasuryStock"
-  RevaluationReserves -> "RevaluationReserves"
-  Reserves -> "Reserves"
-  RetainedEarnings -> "RetainedEarnings"
-  AccumulatedOci -> "AccumulatedOci"
-  MinorityInterests -> "MinorityInterests"
-  Equity -> "Equity"
+bsTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
+  where xf = enumFrom minBound::[BsTyp] 
 
 bsStringToTyp :: Text -> Maybe BsTyp
-bsStringToTyp s = case s of
-  "Cash" -> Just Cash
-  "CurrentReceivables" -> Just CurrentReceivables
-  "CurrentLoans" -> Just CurrentLoans
-  "CurrentAdvances" -> Just CurrentAdvances
-  "OtherCurrentAssets" -> Just OtherCurrentAssets
-  "CurrentInvestmentsBv" -> Just CurrentInvestmentsBv
-  "CurrentInvestmentsMv" -> Just CurrentInvestmentsMv
-  "RawMaterials" -> Just RawMaterials
-  "WorkInProgress" -> Just WorkInProgress
-  "FinishedGoods" -> Just FinishedGoods
-  "AccountReceivables" -> Just AccountReceivables
-  "LongTermLoans" -> Just LongTermLoans
-  "LongTermAdvances" -> Just LongTermAdvances
-  "LongTermInvestmentsBv" -> Just LongTermInvestmentsBv
-  "LongTermInvestmentsMv" -> Just LongTermInvestmentsMv
-  "OtherLongTermAssets" -> Just OtherLongTermAssets
-  "PlantPropertyEquipment" -> Just PlantPropertyEquipment
-  "AccumulatedDepreciation" -> Just AccumulatedDepreciation
-  "LeasingRentalAssset" -> Just LeasingRentalAssset
-  "CapitalWip" -> Just CapitalWip
-  "OtherTangibleAssets" -> Just OtherTangibleAssets
-  "IntangibleAssets" -> Just IntangibleAssets
-  "IntangibleAssetsDevelopment" -> Just IntangibleAssetsDevelopment
-  "AccumulatedAmortization" -> Just AccumulatedAmortization
-  "Assets" -> Just Assets
-  "CurrentPayables" -> Just CurrentPayables
-  "CurrentBorrowings" -> Just CurrentBorrowings
-  "CurrentNotesPayable" -> Just CurrentNotesPayable
-  "OtherCurrentLiabilities" -> Just OtherCurrentLiabilities
-  "InterestPayable" -> Just InterestPayable
-  "CurrentProvisions" -> Just CurrentProvisions
-  "CurrentTaxPayables" -> Just CurrentTaxPayables
-  "LiabilitiesSaleAssets" -> Just LiabilitiesSaleAssets
-  "CurrentLeasesLiability" -> Just CurrentLeasesLiability
-  "AccountPayables" -> Just AccountPayables
-  "LongTermBorrowings" -> Just LongTermBorrowings
-  "BondsPayable" -> Just BondsPayable
-  "DeferredTaxLiabilities" -> Just DeferredTaxLiabilities
-  "LongTermLeasesLiability" -> Just LongTermLeasesLiability
-  "DeferredCompensation" -> Just DeferredCompensation
-  "DeferredRevenues" -> Just DeferredRevenues
-  "CustomerDeposits" -> Just CustomerDeposits
-  "OtherLongTermLiabilities" -> Just OtherLongTermLiabilities
-  "PensionProvision" -> Just PensionProvision
-  "LongTermProvisions" -> Just LongTermProvisions
-  "Liabilities" -> Just Liabilities
-  "CommonStock" -> Just CommonStock
-  "PreferredStock" -> Just PreferredStock
-  "PdInCapAbovePar" -> Just PdInCapAbovePar
-  "PdInCapTreasuryStock" -> Just PdInCapTreasuryStock
-  "RevaluationReserves" -> Just RevaluationReserves
-  "Reserves" -> Just Reserves
-  "RetainedEarnings" -> Just RetainedEarnings
-  "AccumulatedOci" -> Just AccumulatedOci
-  "MinorityInterests" -> Just MinorityInterests
-  "Equity" -> Just Equity
-  otherwise -> Nothing
+bsStringToTyp s = Hm.lookup s bsTypMap
 
-plTypToString :: PlTyp -> Text
-plTypToString x = case x of
-  OperatingRevenue -> "OperatingRevenue"
-  NonOperatingRevenue -> "NonOperatingRevenue"
-  ExciseStaxLevy -> "ExciseStaxLevy"
-  OtherIncome -> "OtherIncome"
-  CostMaterial -> "CostMaterial"
-  DirectExpenses -> "DirectExpenses"
-  Salaries -> "Salaries"
-  AdministrativeExpenses -> "AdministrativeExpenses"
-  ResearchNDevelopment -> "ResearchNDevelopment"
-  OtherOverheads -> "OtherOverheads"
-  OtherOperativeExpenses -> "OtherOperativeExpenses"
-  OtherExpenses -> "OtherExpenses"
-  ExceptionalItems -> "ExceptionalItems"
-  Pbitda -> "Pbitda"
-  Depreciation -> "Depreciation"
-  Amortization -> "Amortization"
-  Pbitx -> "Pbitx"
-  Interest -> "Interest"
-  Pbtx -> "Pbtx"
-  ExtraordinaryItems -> "ExtraordinaryItems"
-  PriorYears -> "PriorYears"
-  Pbt -> "Pbt"
-  TaxesCurrent -> "TaxesCurrent"
-  TaxesDeferred -> "TaxesDeferred"
-  Pat -> "Pat"
-  GainsLossesForex -> "GainsLossesForex"
-  GainsLossesActurial -> "GainsLossesActurial"
-  GainsLossesSales -> "GainsLossesSales"
-  FvChgAvlSale -> "FvChgAvlSale"
-  OtherDeferredTaxes -> "OtherDeferredTaxes"
-  OtherComprehensiveIncome -> "OtherComprehensiveIncome"
-  TotalComprehensiveIncome -> "TotalComprehensiveIncome"
+plTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
+  where xf = enumFrom minBound::[PlTyp] 
 
 plStringToTyp :: Text -> Maybe PlTyp
-plStringToTyp s = case s of
-  "OperatingRevenue" -> Just OperatingRevenue
-  "NonOperatingRevenue" -> Just NonOperatingRevenue
-  "ExciseStaxLevy" -> Just ExciseStaxLevy
-  "OtherIncome" -> Just OtherIncome
-  "CostMaterial" -> Just CostMaterial
-  "DirectExpenses" -> Just DirectExpenses
-  "Salaries" -> Just Salaries
-  "AdministrativeExpenses" -> Just AdministrativeExpenses
-  "ResearchNDevelopment" -> Just ResearchNDevelopment
-  "OtherOverheads" -> Just OtherOverheads
-  "OtherOperativeExpenses" -> Just OtherOperativeExpenses
-  "OtherExpenses" -> Just OtherExpenses
-  "ExceptionalItems" -> Just ExceptionalItems
-  "Pbitda" -> Just Pbitda
-  "Depreciation" -> Just Depreciation
-  "Amortization" -> Just Amortization
-  "Pbitx" -> Just Pbitx
-  "Interest" -> Just Interest
-  "Pbtx" -> Just Pbtx
-  "ExtraordinaryItems" -> Just ExtraordinaryItems
-  "PriorYears" -> Just PriorYears
-  "Pbt" -> Just Pbt
-  "TaxesCurrent" -> Just TaxesCurrent
-  "TaxesDeferred" -> Just TaxesDeferred
-  "Pat" -> Just Pat
-  "GainsLossesForex" -> Just GainsLossesForex
-  "GainsLossesActurial" -> Just GainsLossesActurial
-  "GainsLossesSales" -> Just GainsLossesSales
-  "FvChgAvlSale" -> Just FvChgAvlSale
-  "OtherDeferredTaxes" -> Just OtherDeferredTaxes
-  "OtherComprehensiveIncome" -> Just OtherComprehensiveIncome
-  "TotalComprehensiveIncome" -> Just TotalComprehensiveIncome
-  otherwise -> Nothing
+plStringToTyp s = Hm.lookup s plTypMap
 
-
-cfTypToString :: CfTyp -> Text
-cfTypToString x = case x of
-  ChgInventories -> "ChgInventories"
-  ChgReceivables -> "ChgReceivables"
-  ChgLiabilities -> "ChgLiabilities"
-  ChgProvisions -> "ChgProvisions"
-  OtherCfOperations -> "OtherCfOperations"
-  CashFlowOperations -> "CashFlowOperations"
-  InvestmentsPpe -> "InvestmentsPpe"
-  InvestmentsCapDevp -> "InvestmentsCapDevp"
-  InvestmentsLoans -> "InvestmentsLoans"
-  AcqEquityAssets -> "AcqEquityAssets"
-  DisEquityAssets -> "DisEquityAssets"
-  DisPpe -> "DisPpe"
-  ChgInvestments -> "ChgInvestments"
-  CfInvestmentInterest -> "CfInvestmentInterest"
-  CfInvestmentDividends -> "CfInvestmentDividends"
-  OtherCfInvestments -> "OtherCfInvestments"
-  CashFlowInvestments -> "CashFlowInvestments"
-  StockSales -> "StockSales"
-  StockRepurchase -> "StockRepurchase"
-  DebtIssue -> "DebtIssue"
-  DebtRepay -> "DebtRepay"
-  InterestFin -> "InterestFin"
-  Dividends -> "Dividends"
-  DonorContribution -> "DonorContribution"
-  OtherCfFinancing -> "OtherCfFinancing"
-  CashFlowFinancing -> "CashFlowFinancing"
-  NetCashFlow -> "NetCashFlow"
-  Fcff -> "Fcff"
-  Fcfe -> "Fcfe"
-  Fcfd -> "Fcfd"
+cfTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
+  where xf = enumFrom minBound::[CfTyp] 
 
 cfStringToTyp :: Text -> Maybe CfTyp
-cfStringToTyp s = case s of
-  "ChgInventories" -> Just ChgInventories
-  "ChgReceivables" -> Just ChgReceivables
-  "ChgLiabilities" -> Just ChgLiabilities
-  "ChgProvisions" -> Just ChgProvisions
-  "OtherCfOperations" -> Just OtherCfOperations
-  "CashFlowOperations" -> Just CashFlowOperations
-  "InvestmentsPpe" -> Just InvestmentsPpe
-  "InvestmentsCapDevp" -> Just InvestmentsCapDevp
-  "InvestmentsLoans" -> Just InvestmentsLoans
-  "AcqEquityAssets" -> Just AcqEquityAssets
-  "DisEquityAssets" -> Just DisEquityAssets
-  "DisPpe" -> Just DisPpe
-  "ChgInvestments" -> Just ChgInvestments
-  "CfInvestmentInterest" -> Just CfInvestmentInterest
-  "CfInvestmentDividends" -> Just CfInvestmentDividends
-  "OtherCfInvestments" -> Just OtherCfInvestments
-  "CashFlowInvestments" -> Just CashFlowInvestments
-  "StockSales" -> Just StockSales
-  "StockRepurchase" -> Just StockRepurchase
-  "DebtIssue" -> Just DebtIssue
-  "DebtRepay" -> Just DebtRepay
-  "InterestFin" -> Just InterestFin
-  "Dividends" -> Just Dividends
-  "DonorContribution" -> Just DonorContribution
-  "OtherCfFinancing" -> Just OtherCfFinancing
-  "CashFlowFinancing" -> Just CashFlowFinancing
-  "NetCashFlow" -> Just NetCashFlow
-  "Fcff" -> Just Fcff
-  "Fcfe" -> Just Fcfe
-  "Fcfd" -> Just Fcfd
-  otherwise -> Nothing
-
+cfStringToTyp s = Hm.lookup s cfTypMap
 
 
 class FinType a => GetPSQLArray a where
