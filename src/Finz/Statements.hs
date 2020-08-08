@@ -425,8 +425,34 @@ cashFl :: Accountz -> Maybe CashFlow
 cashFl x = (x ^. cashFlow) >>= 
   \y -> return $ CashFlow (x ^. dateBegin) (x ^. dateEnd) Actual y
 
-mkAccountz :: BalanceSheet -> BalanceSheet -> ProfitLoss -> CashFlow -> Maybe Accountz
-mkAccountz bsBeg bsEnd pl cf = undefined
+mkAccountz :: Maybe BalanceSheet -> Maybe BalanceSheet -> ProfitLoss -> Maybe CashFlow -> Maybe Accountz
+mkAccountz bsBeg bsEnd pl cf = do
+
+  let 
+    d1 = pl ^. dateBegin
+    d2 = pl ^. dateEnd
+
+    datBS :: Maybe BalanceSheet -> Day -> (Day, Maybe BsMap)
+    datBS Nothing dat = (dat, Nothing)
+    datBs x dat = (xj^.datez, Just (xj^.rec)) where Just xj = x
+
+    datCF :: Maybe CashFlow -> Day -> Day -> (Day, Day, Maybe CfMap)
+    datCF Nothing d1 d2 = (d1, d2, Nothing)
+    datCf x dat = (xj^.dateBegin,xj^.dateEnd,Just (xj^.rec)) where Just xj = x
+
+    (dtbs1,bsBg) = datBS bsBeg d1
+    (dtbs2,bsEn) = datBS bsEnd d2
+
+    (dtcf1,dtcf2,cfMp) = datCF cf d1 d2
+
+  if  
+    d1 == dtbs1 &&
+    d2 == dtbs2 &&
+    d1 == dtcf1 &&
+    d2 == dtcf2
+  then return $ Accountz d1 d2 bsBg bsEn (Just (pl^.rec)) cfMp
+  else Nothing
+
 
 class FinType a => GetPSQLArray a where
   readPSQLArray :: [Text] -> Hm.HashMap a Double
