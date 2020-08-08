@@ -409,17 +409,20 @@ instance GetAccountz CfTyp where
     return $ x & cashFlow .~ (Just (Hm.insert k v p))
 
 
-balShBegin :: Accountz -> BalanceSheet
+balShBegin :: Accountz -> Maybe BalanceSheet
 balShBegin x = undefined
 
-balShEnd :: Accountz -> BalanceSheet
+balShEnd :: Accountz -> Maybe BalanceSheet
 balShEnd x = undefined
 
-profLoss :: Accountz -> ProfitLoss
+profLoss :: Accountz -> Maybe ProfitLoss
 profLoss x = undefined
 
-cashFl :: Accountz -> CashFlow
+cashFl :: Accountz -> Maybe CashFlow
 cashFl x = undefined
+
+mkAccountz :: BalanceSheet -> BalanceSheet -> ProfitLoss -> CashFlow -> Maybe Accountz
+mkAccountz bsBeg bsEnd pl cf = undefined
 
 class FinType a => GetPSQLArray a where
   readPSQLArray :: [Text] -> Hm.HashMap a Double

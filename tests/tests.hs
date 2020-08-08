@@ -258,6 +258,9 @@ main = do
   quickCheck $ (xz !>> OperatingRevenue) =~ Just 58.35
 
   -- print $ xz !^++ [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
+  -- print $ xz !^+ (Cash, 2.34) -- Nothing
+  -- print $ xz !^%% [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
+  -- print $ xz !^% (Cash, 2.34) -- Nothing
 
   let acz = xz !^~ [
             (Cash,                          88.68)
@@ -306,7 +309,34 @@ main = do
   quickCheck $ xz !^> Pbitx =~ Just 0.0
   quickCheck $ xz !^> AccumulatedDepreciation =~ Just 50.0
 
+  -- print "xz = "; print xz
+
+  let Just acz = Just xz >>= (!>% (Cash, 15)) >>= (!^% (Cash, 34.0)) >>=
+        (!^% (AccumulatedAmortization, 45.0)) >>=
+        (!>% (AccumulatedOci, 23.25)) >>=
+        (!^% (AccumulatedOci, 22.56)) >>=
+        (!^% (OperatingRevenue, 93.57)) >>=
+        (!^% (Pbt, 23.65)) >>=
+        (!^% (Fcfd, 15.89)) >>=
+        (!>% (CashFlowFinancing, -3.50))
+
+  let Just xz = (acz !^%% [(Pat, 22.65), (Depreciation, 56.58)]) >>=
+        (!>%% [(CurrentLoans, 78.02), (IntangibleAssets, 65.43)]) >>=
+        (!>++ [(Cash, -5.0)]) >>=
+        (!>%% [(NonOperatingRevenue, 67.65), (Amortization, 54.32)]) >>=
+        (!^%% [(OtherCfInvestments, 84.56), (StockSales, 22.54)])
+
+  quickCheck $ xz !>> Cash =~ Just 10.0
+  quickCheck $ xz !^> Cash =~ Just 34.0
+  quickCheck $ xz !>> StockSales =~ Just 22.54
+  quickCheck $ xz !^> Fcfd =~ Just 15.89
+  quickCheck $ xz !>> AccumulatedOci =~ Just 23.25
+  quickCheck $ xz !^> DisPpe =~ Just 0.0
+  quickCheck $ xz !^> AccumulatedOci =~ Just 22.56
+  quickCheck $ xz !>> OperatingRevenue =~ Just 93.57
+
   print "xz = "; print xz
+
 
 
   print $ "Bye"
