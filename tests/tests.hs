@@ -337,7 +337,7 @@ main = do
 
   print "xz = "; print xz
 
-
+  print "Bs begin"; print $ S>balShBegin xz 
 
   print $ "Bye"
 

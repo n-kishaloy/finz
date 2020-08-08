@@ -5,7 +5,7 @@
 
 module Finz.Statements
 ( BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statementz (..)
-, Accountz (..), GetAccountz (..) --, (!^>)
+, Accountz (..), GetAccountz (..), balShBegin, balShEnd, profLoss, cashFl 
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
 , HasStatuz (..), HasRec (..)
@@ -410,7 +410,13 @@ instance GetAccountz CfTyp where
 
 
 balShBegin :: Accountz -> Maybe BalanceSheet
-balShBegin x = undefined
+balShBegin x = do
+  p <- (x ^. balanceSheetBegin) 
+  return BalanceSheet {
+    balanceSheetDatez = x ^. beginDate
+  , balanceSheetStatuz = Actual
+  , balanceSheetRec = p
+  }
 
 balShEnd :: Accountz -> Maybe BalanceSheet
 balShEnd x = undefined
