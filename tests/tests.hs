@@ -165,8 +165,8 @@ main = do
   quickCheck $ bs !!? Cash  =~ Just 24.45
 
   let pl = S.ProfitLoss {
-      S.profitLossBeginDate = (fromGregorian 2018 3 31),
-      S.profitLossEndDate = (fromGregorian 2018 3 31),
+      S.profitLossDateBegin = (fromGregorian 2018 3 31),
+      S.profitLossDateEnd = (fromGregorian 2018 3 31),
       S.profitLossStatuz = S.Unset,
       S.profitLossRec = 
         Hm.fromList [ 
@@ -181,8 +181,8 @@ main = do
   quickCheck $ pl !!? Pat == Nothing
 
   let cf = S.CashFlow {
-      S.cashFlowBeginDate = (fromGregorian 2018 3 31),
-      S.cashFlowEndDate = (fromGregorian 2018 3 31),
+      S.cashFlowDateBegin = (fromGregorian 2018 3 31),
+      S.cashFlowDateEnd = (fromGregorian 2018 3 31),
       S.cashFlowStatuz = S.Unset,
       S.cashFlowRec = 
         Hm.fromList [ 
@@ -219,8 +219,8 @@ main = do
   print "Accountz"
 
   let acz = S.Accountz {
-      S.accountzBeginDate = (fromGregorian 2018 3 31)
-    , S.accountzEndDate   = (fromGregorian 2019 3 31)
+      S.accountzDateBegin = (fromGregorian 2018 3 31)
+    , S.accountzDateEnd   = (fromGregorian 2019 3 31)
     , S.accountzBalanceSheetBegin = Nothing
     , S.accountzBalanceSheetEnd = 
       Just $ Hm.fromList [
@@ -261,6 +261,7 @@ main = do
   -- print $ xz !^+ (Cash, 2.34) -- Nothing
   -- print $ xz !^%% [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
   -- print $ xz !^% (Cash, 2.34) -- Nothing
+  print $ S.balShBegin xz -- Nothing
 
   let acz = xz !^~ [
             (Cash,                          88.68)
@@ -337,7 +338,9 @@ main = do
 
   print "xz = "; print xz
 
-  print "Bs begin"; print $ S>balShBegin xz 
+  print "Profit Loss"; print $ S.profLoss xz 
+  print "Cash Flow";    print $ S.cashFl xz 
+
 
   print $ "Bye"
 

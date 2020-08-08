@@ -9,7 +9,7 @@ module Finz.Statements
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
 , HasStatuz (..), HasRec (..)
-, HasDatez (..), HasBeginDate (..), HasEndDate (..)
+, HasDatez (..), HasDateBegin (..), HasDateEnd (..)
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..)
 , GetRecords (..)
@@ -160,8 +160,8 @@ instance Hashable PlTyp
 type PlMap = Hm.HashMap PlTyp Double
 
 data ProfitLoss = ProfitLoss
-  { profitLossBeginDate     :: Day
-  , profitLossEndDate       :: Day
+  { profitLossDateBegin     :: Day
+  , profitLossDateEnd       :: Day
   , profitLossStatuz        :: Statuz
   , profitLossRec           :: PlMap
   } deriving (Show, FinStat)
@@ -205,8 +205,8 @@ instance Hashable CfTyp
 type CfMap = Hm.HashMap CfTyp Double
 
 data CashFlow = CashFlow
-  { cashFlowBeginDate       :: Day
-  , cashFlowEndDate         :: Day
+  { cashFlowDateBegin       :: Day
+  , cashFlowDateEnd         :: Day
   , cashFlowStatuz          :: Statuz
   , cashFlowRec             :: CfMap
   } deriving (Show, FinStat)
@@ -214,8 +214,8 @@ data CashFlow = CashFlow
 makeFields ''CashFlow
 
 data Statementz = Statementz
-  { statementzBeginDate         :: Day
-  , statementzEndDate           :: Day
+  { statementzDateBegin         :: Day
+  , statementzDateEnd           :: Day
   , statementzBalanceSheetBegin :: Maybe BalanceSheet
   , statementzBalanceSheetEnd   :: Maybe BalanceSheet
   , statementzProfitLoss        :: Maybe ProfitLoss
@@ -312,8 +312,8 @@ cfStringToTyp :: Text -> Maybe CfTyp
 cfStringToTyp s = Hm.lookup s cfTypMap
 
 data Accountz = Accountz
-  { accountzBeginDate         :: Day
-  , accountzEndDate           :: Day
+  { accountzDateBegin         :: Day
+  , accountzDateEnd           :: Day
   , accountzBalanceSheetBegin :: Maybe BsMap
   , accountzBalanceSheetEnd   :: Maybe BsMap
   , accountzProfitLoss        :: Maybe PlMap
@@ -410,22 +410,20 @@ instance GetAccountz CfTyp where
 
 
 balShBegin :: Accountz -> Maybe BalanceSheet
-balShBegin x = do
-  p <- (x ^. balanceSheetBegin) 
-  return BalanceSheet {
-    balanceSheetDatez = x ^. beginDate
-  , balanceSheetStatuz = Actual
-  , balanceSheetRec = p
-  }
-
+balShBegin x = (x ^. balanceSheetBegin) >>= 
+  \y -> return $ BalanceSheet (x ^. dateBegin) Actual y
+  
 balShEnd :: Accountz -> Maybe BalanceSheet
-balShEnd x = undefined
+balShEnd x = (x ^. balanceSheetEnd) >>= 
+  \y -> return $ BalanceSheet (x ^. dateEnd) Actual y
 
 profLoss :: Accountz -> Maybe ProfitLoss
-profLoss x = undefined
+profLoss x = (x ^. profitLoss) >>= 
+  \y -> return $ ProfitLoss (x ^. dateBegin) (x ^. dateEnd) Actual y
 
 cashFl :: Accountz -> Maybe CashFlow
-cashFl x = undefined
+cashFl x = (x ^. cashFlow) >>= 
+  \y -> return $ CashFlow (x ^. dateBegin) (x ^. dateEnd) Actual y
 
 mkAccountz :: BalanceSheet -> BalanceSheet -> ProfitLoss -> CashFlow -> Maybe Accountz
 mkAccountz bsBeg bsEnd pl cf = undefined
