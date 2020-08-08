@@ -1,4 +1,4 @@
-{-# LANGUAGE NumericUnderscores, OverloadedStrings #-}
+{-# LANGUAGE NumericUnderscores, OverloadedStrings, Strict #-}
 
 
 
@@ -14,6 +14,7 @@ import qualified Finz as F
 import qualified Finz.Statements as S
 import Finz.Statements (HasStatuz(..), HasChk (..), HasShk(..)) -- pollution
 import Finz.Statements (BsTyp (..), PlTyp (..), CfTyp (..), GetRecords (..)) 
+import Finz.Statements (GetAccountz(..)  )
 -- pollution
 
 import Data.Time (Day, fromGregorian)
@@ -106,8 +107,28 @@ main = do
 
   print $ (cs^.S.chk.S.statuz, xs^.S.chk.S.statuz, cs^.shk.statuz, cs^.statuz, cs^.S.checker)
 
-  print $ ("Hi", ys)
-  print $ ("Hi", xs)
+  -- print $ ("Hi", ys)
+  -- print $ ("Hi", xs)
+
+  print $ "Check the Fintypes"
+  quickCheck $ Cash =~ Cash
+  quickCheck $ Cash /~ CurrentAdvances
+  quickCheck $ OperatingRevenue =~ OperatingRevenue
+  quickCheck $ CashFlowFinancing /~ CashFlowInvestments
+
+  quickCheck $ S.bsStringToTyp ("Cash"::Text) == Just S.Cash
+  quickCheck $ S.bsStringToTyp ("ComonStock"::Text) == Nothing
+  quickCheck $ S.bsStringToTyp ("BondsPayable"::Text) == Just S.BondsPayable
+
+  quickCheck $ S.plStringToTyp ("OtherIncome"::Text) == Just S.OtherIncome
+  quickCheck $ S.plStringToTyp ("OthIncome"::Text) == Nothing
+  quickCheck $ S.plStringToTyp ("Pat"::Text) == Just S.Pat
+
+  quickCheck $ S.cfStringToTyp ("Fcfd"::Text) == Just S.Fcfd
+  quickCheck $ S.cfStringToTyp ("FcFd"::Text) == Nothing
+  quickCheck $ S.cfStringToTyp ("DisPpe"::Text) == Just S.DisPpe
+
+  print $ "Balance Sheet"
 
   let bs = S.BalanceSheet {
       S.balanceSheetDatez = (fromGregorian 2018 3 31),
@@ -125,14 +146,14 @@ main = do
                   ,   (CurrentLoans,        34.56) 
                   ]
 
-  print bs
+  -- print bs
 
   let xs = bs
   let bs = xs !!+ (CurrentLoans, 10.0)
 
   let xs = bs
   let bs = xs !!+ (CurrentAdvances, 25.0)
-  print bs
+  -- print bs
 
   print $ bs^.S.rec.at S.Cash
   quickCheck $ (bs^.S.rec) ! Cash =~ 24.45
@@ -143,7 +164,6 @@ main = do
   quickCheck $ bs !!? CurrentNotesPayable == Nothing
   quickCheck $ bs !!? Cash  =~ Just 24.45
 
-
   let pl = S.ProfitLoss {
       S.profitLossBeginDate = (fromGregorian 2018 3 31),
       S.profitLossEndDate = (fromGregorian 2018 3 31),
@@ -153,7 +173,7 @@ main = do
                 (S.OperatingRevenue,    58.35)
             ,   (S.OtherExpenses,       41.58) 
           ]
-}
+    }
 
   quickCheck $ pl !!> OperatingRevenue =~ 58.35
   quickCheck $ pl !!> Pat =~ 0.0
@@ -176,7 +196,7 @@ main = do
           (DisPpe, 23.58), (OtherCfInvestments, 20.00)
           ]
 
-  print cf
+  -- print cf
 
   quickCheck $ cf !!> CashFlowOperations =~ 38.35
   quickCheck $ cf !!> CashFlowInvestments =~ 0.0
@@ -190,29 +210,103 @@ main = do
           (DisPpe, 22.25), (CfInvestmentDividends, 78.58)
           ]
 
-  print cf
+  -- print cf
 
   quickCheck $ ((S.recToList cf) :: [(CfTyp,Double)]) =~ [
     (DisPpe,22.25),(CfInvestmentDividends,78.58),
     (OtherCfInvestments,68.58),(CashFlowOperations,38.35)]
 
-  print $ "Check the Fintypes"
-  quickCheck $ Cash =~ Cash
-  quickCheck $ Cash /~ CurrentAdvances
-  quickCheck $ OperatingRevenue =~ OperatingRevenue
-  quickCheck $ CashFlowFinancing /~ CashFlowInvestments
+  print "Accountz"
 
-  quickCheck $ S.bsStringToTyp ("Cash"::Text) == Just S.Cash
-  quickCheck $ S.bsStringToTyp ("ComonStock"::Text) == Nothing
-  quickCheck $ S.bsStringToTyp ("BondsPayable"::Text) == Just S.BondsPayable
+  let acz = S.Accountz {
+      S.accountzBeginDate = (fromGregorian 2018 3 31)
+    , S.accountzEndDate   = (fromGregorian 2019 3 31)
+    , S.accountzBalanceSheetBegin = Nothing
+    , S.accountzBalanceSheetEnd = 
+      Just $ Hm.fromList [
+        (Cash,                30.45)
+      , (CurrentReceivables,  80.65)
+      ]
+    , S.accountzProfitLoss = 
+      Just $ Hm.fromList [
+        (S.OperatingRevenue,    58.35)
+      , (S.OtherExpenses,       41.58) 
+      ]
+    , S.accountzCashFlow = 
+      Just $ Hm.fromList [ 
+        (S.CashFlowOperations,  38.35)
+      , (S.OtherCfInvestments,  48.58) 
+      ]
+    }
 
-  quickCheck $ S.plStringToTyp ("OtherIncome"::Text) == Just S.OtherIncome
-  quickCheck $ S.plStringToTyp ("OthIncome"::Text) == Nothing
-  quickCheck $ S.plStringToTyp ("Pat"::Text) == Just S.Pat
+  -- print acz
 
-  quickCheck $ S.cfStringToTyp ("Fcfd"::Text) == Just S.Fcfd
-  quickCheck $ S.cfStringToTyp ("FcFd"::Text) == Nothing
-  quickCheck $ S.cfStringToTyp ("DisPpe"::Text) == Just S.DisPpe
+  quickCheck $ (acz !>> Cash) =~ Just 30.45
+  quickCheck $ (acz !>> CurrentLeasesLiability) =~ Just 0.0
+  quickCheck $ (acz !^> Cash) =~ Nothing
+  quickCheck $ (acz !^> OperatingRevenue) =~ Just 58.35
+  quickCheck $ (acz !>> Pat) =~ Just 0.0
+
+  let xz = acz !>~  [ 
+          (Cash,                24.45)
+        , (CurrentLoans,        34.56) 
+        ]
+
+  -- print "xz = "; print xz
+
+  quickCheck $ (xz !>> Cash) =~ Just 24.45
+  quickCheck $ (xz !>> OperatingRevenue) =~ Just 58.35
+
+  -- print $ xz !^++ [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
+
+  let acz = xz !^~ [
+            (Cash,                          88.68)
+          , (AccumulatedDepreciation,       52.47) 
+          ]
+
+  -- print "acz = "; print acz
+  let pz = acz
+
+  let Just acz = do  -- Using do notation but not so useful
+        x <- (!>+ (Cash, 10.0)) pz
+        x <- (!>+ (CurrentAdvances, 15.0)) x
+        x <- (!>+ (OperatingRevenue, -5.0)) x
+        return x
+        
+  let Just acz = Just pz >>= (!>+ (Cash, 10.0)) >>= 
+        (!>+ (CurrentAdvances, 15.0)) >>= 
+        (!>+ (OperatingRevenue, -5.0)) >>=
+        (!>+ (CashFlowOperations, 15.0)) >>=
+        (!>+ (CashFlowInvestments, 25.0)) >>=
+        (!^+ (Cash, 1.32)) >>=
+        (!^+ (CurrentAdvances, 32.5)) >>=
+        (!^+ (CashFlowInvestments, 5.0))
+
+  quickCheck $ acz !^> Cash =~ Just 90.0
+  quickCheck $ acz !>> Cash =~ Just 34.45
+  quickCheck $ acz !^> CurrentLoans =~ Just 0.0
+  quickCheck $ acz !^> OperatingRevenue =~ Just 53.35
+
+  -- print "acz = "; print acz
+
+  let Just xz = (acz !^++ [(Cash, 10.0), (CurrentReceivables, 15.0)]) >>= 
+        (!^++ [(OperatingRevenue, -3.35), (Pat, 2.58)]) >>=
+        (!^++ [(Cash, 15.0), (AccumulatedDepreciation, -2.47)]) >>=
+        (!^++ [(CashFlowFinancing, 12.0), (CashFlowInvestments, -5.0)]) >>=
+        (!>++ [(Cash, 0.55), (CurrentAdvances, -2.5), (AccumulatedDepreciation, 12.7)]) >>=
+        (!>++ [(CashFlowFinancing, -2.0), (Fcff, 2.73)]) >>=
+        (!>++ [(OperatingRevenue, -15.0), (Pbitda, 3.58)])
+
+  quickCheck $ xz !>> Cash =~ Just 35.0
+  quickCheck $ xz !^> Cash =~ Just 115.0
+  quickCheck $ xz !^> OperatingRevenue =~ Just 35.0
+  quickCheck $ xz !>> OtherExpenses =~ Just 41.58
+  quickCheck $ xz !^> Pat =~ Just 2.58
+  quickCheck $ xz !>> CashFlowFinancing =~ Just 10.0
+  quickCheck $ xz !^> Pbitx =~ Just 0.0
+  quickCheck $ xz !^> AccumulatedDepreciation =~ Just 50.0
+
+  print "xz = "; print xz
 
 
   print $ "Bye"

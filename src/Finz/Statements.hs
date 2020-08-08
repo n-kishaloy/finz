@@ -5,6 +5,7 @@
 
 module Finz.Statements
 ( BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statementz (..)
+, Accountz (..), GetAccountz (..) --, (!^>)
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
 , HasStatuz (..), HasRec (..)
@@ -243,7 +244,7 @@ instance Approx Statementz where
 class GetRecords a b where
   (!!>) :: (FinStat a, FinType b) => a -> b -> Double         -- Get
   (!!?) :: (FinStat a, FinType b) => a -> b -> Maybe Double   -- Maybe Get
-  (!!~) :: (FinStat a, FinType b) => a -> [(b,Double)] -> a   -- Set => Reset 
+  (!!~) :: (FinStat a, FinType b) => a -> [(b,Double)] -> a   -- Set/Reset 
   (!!+) :: (FinStat a, FinType b) => a -> (b,Double) -> a     -- Add/Create 
 
   (!!++) :: (FinStat a, FinType b) => a -> [(b,Double)] -> a -- List Add
@@ -310,6 +311,115 @@ cfTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf
 cfStringToTyp :: Text -> Maybe CfTyp
 cfStringToTyp s = Hm.lookup s cfTypMap
 
+data Accountz = Accountz
+  { accountzBeginDate         :: Day
+  , accountzEndDate           :: Day
+  , accountzBalanceSheetBegin :: Maybe BsMap
+  , accountzBalanceSheetEnd   :: Maybe BsMap
+  , accountzProfitLoss        :: Maybe PlMap
+  , accountzCashFlow          :: Maybe CfMap
+  } deriving (Show, FinStat)
+
+makeFields ''Accountz
+
+class GetAccountz a where
+  (!>>) :: FinType a => Accountz -> a -> Maybe Double             -- Get
+  (!^>) :: FinType a => Accountz -> a -> Maybe Double
+  (!^>) = (!>>)
+
+  (!>~) :: FinType a => Accountz -> [(a,Double)] -> Accountz      -- Set/Reset
+  (!^~) :: FinType a => Accountz -> [(a,Double)] -> Accountz      -- Set/Reset
+  (!^~) = (!>~)
+
+  (!>+) :: FinType a => Accountz -> (a,Double) -> Maybe Accountz  -- Add/Create
+  (!^+) :: FinType a => Accountz -> (a,Double) -> Maybe Accountz  -- Add/Create
+  (!^+) = (!>+)
+
+  (!>%) :: FinType a => Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
+  (!^%) :: FinType a => Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
+  (!^%) = (!>%)
+
+  (!>++) :: FinType a => Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  x !>++ [] = return x
+  x !>++ (y:ys) = x !>+ y >>= (!>++ ys)
+
+  (!^++) :: FinType a => Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  x !^++ [] = return x
+  x !^++ (y:ys) = x !^+ y >>= (!^++ ys)
+
+  (!>%%) :: FinType a => Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
+  x !>%% [] = return x
+  x !>%% (y:ys) = x !>% y >>= (!>%% ys)
+
+  (!^%%) :: FinType a => Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
+  x !^%% [] = return x
+  x !^%% (y:ys) = x !^% y >>= (!^%% ys)
+
+
+
+instance GetAccountz BsTyp where
+  (!^>) x t = do p <- x^.balanceSheetBegin; return $ Hm.lookupDefault 0.0 t p
+  (!>>) x t = do p <- x ^. balanceSheetEnd; return $ Hm.lookupDefault 0.0 t p
+
+  (!^~) x r = x & balanceSheetBegin .~ (Just (Hm.fromList r))
+  (!>~) x r = x & balanceSheetEnd .~ (Just (Hm.fromList r))
+
+  (!^+) x (k,v) = do 
+    p <- (x ^. balanceSheetBegin)
+    return $ x&balanceSheetBegin .~(Just (Hm.insertWith (\nw ol->nw+ol) k v p))
+
+  (!>+) x (k,v) = do 
+    p <- (x ^. balanceSheetEnd)
+    return $ x & balanceSheetEnd .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
+
+  (!^%) x (k,v) = do 
+    p <- (x ^. balanceSheetBegin)
+    return $ x & balanceSheetBegin .~ (Just (Hm.insert k v p))
+
+  (!>%) x (k,v) = do 
+    p <- (x ^. balanceSheetEnd)
+    return $ x & balanceSheetEnd .~ (Just (Hm.insert k v p))
+
+
+
+instance GetAccountz PlTyp where
+  (!>>) x t = do p <- x^.profitLoss; return $ Hm.lookupDefault 0.0 t p
+  (!>~) x r = x & profitLoss .~ (Just (Hm.fromList r))
+
+  (!>+) x (k,v) = do 
+    p <- (x ^. profitLoss)
+    return $ x & profitLoss .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
+
+  (!>%) x (k,v) = do 
+    p <- (x ^. profitLoss)
+    return $ x & profitLoss .~ (Just (Hm.insert k v p))
+
+
+
+instance GetAccountz CfTyp where
+  (!>>) x t = do p <- x^.cashFlow; return $ Hm.lookupDefault 0.0 t p
+  (!>~) x r = x & cashFlow .~ (Just (Hm.fromList r))
+
+  (!>+) x (k,v) = do 
+    p <- (x ^. cashFlow)
+    return $ x & cashFlow .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
+
+  (!>%) x (k,v) = do 
+    p <- (x ^. cashFlow)
+    return $ x & cashFlow .~ (Just (Hm.insert k v p))
+
+
+balShBegin :: Accountz -> BalanceSheet
+balShBegin x = undefined
+
+balShEnd :: Accountz -> BalanceSheet
+balShEnd x = undefined
+
+profLoss :: Accountz -> ProfitLoss
+profLoss x = undefined
+
+cashFl :: Accountz -> CashFlow
+cashFl x = undefined
 
 class FinType a => GetPSQLArray a where
   readPSQLArray :: [Text] -> Hm.HashMap a Double
