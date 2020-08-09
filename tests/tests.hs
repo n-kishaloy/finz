@@ -155,7 +155,7 @@ main = do
   let bs = xs !!+ (CurrentAdvances, 25.0)
   -- print bs
 
-  print $ bs^.S.rec.at S.Cash
+  -- print $ bs^.S.rec.at S.Cash
   quickCheck $ (bs^.S.rec) ! Cash =~ 24.45
   quickCheck $ bs !!> CurrentReceivables =~ 0.0
   quickCheck $ bs !!> Cash =~ 24.45
@@ -261,7 +261,7 @@ main = do
   -- print $ xz !^+ (Cash, 2.34) -- Nothing
   -- print $ xz !^%% [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
   -- print $ xz !^% (Cash, 2.34) -- Nothing
-  print $ S.balShBegin xz -- Nothing
+  -- print $ S.balShBegin xz -- Nothing
 
   let acz = xz !^~ [
             (Cash,                          88.68)
@@ -336,11 +336,54 @@ main = do
   quickCheck $ xz !^> AccumulatedOci =~ Just 22.56
   quickCheck $ xz !>> OperatingRevenue =~ Just 93.57
 
-  print "xz = "; print xz
+  -- print "xz = "; print xz
 
-  print "Profit Loss"; print $ S.profLoss xz 
-  print "Cash Flow";    print $ S.cashFl xz 
+  let 
+    b1 = Just $ S.BalanceSheet {
+      S.balanceSheetDatez = (fromGregorian 2018 3 31),
+      S.balanceSheetStatuz = S.Unset,
+      S.balanceSheetRec = 
+        Hm.fromList [ 
+              (Cash,                30.45)
+          ,   (CurrentReceivables,  80.56) 
+          ]
+    }
+ 
+    b2 = Just $ S.BalanceSheet {
+      S.balanceSheetDatez = (fromGregorian 2019 3 31),
+      S.balanceSheetStatuz = S.Unset,
+      S.balanceSheetRec = 
+        Hm.fromList [ 
+              (Cash,                30.45)
+          ,   (CurrentReceivables,  80.56) 
+          ]
+    }
+ 
+    pl = Just $ S.ProfitLoss {
+      S.profitLossDateBegin = (fromGregorian 2018 3 31),
+      S.profitLossDateEnd = (fromGregorian 2019 3 31),
+      S.profitLossStatuz = S.Unset,
+      S.profitLossRec = 
+        Hm.fromList [ 
+                (S.OperatingRevenue,    58.35)
+            ,   (S.OtherExpenses,       41.58) 
+          ]
+    }
 
+    cf = Just $ S.CashFlow {
+      S.cashFlowDateBegin = (fromGregorian 2018 3 31),
+      S.cashFlowDateEnd = (fromGregorian 2019 3 31),
+      S.cashFlowStatuz = S.Unset,
+      S.cashFlowRec = 
+        Hm.fromList [ 
+              (S.CashFlowOperations,  38.35)
+          ,   (S.OtherCfInvestments,  48.58) 
+        ]
+    }
+
+  -- let Just mka = S.mkAccountz b1 b2 pl cf
+  -- print $ "mka"; print $ mka
+  -- print $ "spl"; print $ S.splitAccountz mka
 
   print $ "Bye"
 

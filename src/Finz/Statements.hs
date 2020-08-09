@@ -5,7 +5,8 @@
 
 module Finz.Statements
 ( BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statementz (..)
-, Accountz (..), GetAccountz (..), balShBegin, balShEnd, profLoss, cashFl 
+, Accountz (..), GetAccountz (..)
+, balShBegin, balShEnd, profLoss, cashFl, mkAccountz, splitAccountz
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
 , HasStatuz (..), HasRec (..)
@@ -425,34 +426,30 @@ cashFl :: Accountz -> Maybe CashFlow
 cashFl x = (x ^. cashFlow) >>= 
   \y -> return $ CashFlow (x ^. dateBegin) (x ^. dateEnd) Actual y
 
-mkAccountz :: Maybe BalanceSheet -> Maybe BalanceSheet -> ProfitLoss -> Maybe CashFlow -> Maybe Accountz
-mkAccountz bsBeg bsEnd pl cf = do
-
-  let 
+mkAccountz :: Maybe BalanceSheet -> Maybe BalanceSheet -> Maybe ProfitLoss -> Maybe CashFlow -> Maybe Accountz
+mkAccountz _ _ Nothing _ = Nothing
+mkAccountz bsBeg bsEnd (Just pl) cf = 
+  if d1 == dtbs1 && d2 == dtbs2 && d1 == dtcf1 && d2 == dtcf2
+  then Just $ Accountz d1 d2 bsBg bsEn (Just (pl^.rec)) cfMp
+  else Nothing
+  where
     d1 = pl ^. dateBegin
     d2 = pl ^. dateEnd
 
     datBS :: Maybe BalanceSheet -> Day -> (Day, Maybe BsMap)
-    datBS Nothing dat = (dat, Nothing)
-    datBs x dat = (xj^.datez, Just (xj^.rec)) where Just xj = x
+    datBS Nothing dt = (dt, Nothing)
+    datBS (Just xj) _ = (xj^.datez, Just (xj^.rec)) 
 
     datCF :: Maybe CashFlow -> Day -> Day -> (Day, Day, Maybe CfMap)
-    datCF Nothing d1 d2 = (d1, d2, Nothing)
-    datCf x dat = (xj^.dateBegin,xj^.dateEnd,Just (xj^.rec)) where Just xj = x
+    datCF Nothing dt1 dt2 = (dt1, dt2, Nothing)
+    datCF (Just xj) _ _ = (xj^.dateBegin, xj^.dateEnd, Just (xj^.rec)) 
 
     (dtbs1,bsBg) = datBS bsBeg d1
     (dtbs2,bsEn) = datBS bsEnd d2
-
     (dtcf1,dtcf2,cfMp) = datCF cf d1 d2
 
-  if  
-    d1 == dtbs1 &&
-    d2 == dtbs2 &&
-    d1 == dtcf1 &&
-    d2 == dtcf2
-  then return $ Accountz d1 d2 bsBg bsEn (Just (pl^.rec)) cfMp
-  else Nothing
-
+splitAccountz :: Accountz -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
+splitAccountz x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
 
 class FinType a => GetPSQLArray a where
   readPSQLArray :: [Text] -> Hm.HashMap a Double
