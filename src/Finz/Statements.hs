@@ -10,7 +10,8 @@ module Finz.Statements
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
 , HasStatuz (..), HasRec (..)
-, HasDatez (..), HasDateBegin (..), HasDateEnd (..)
+, HasDatez (..), HasDateBegin (..), HasDateEnd (..), HasBalanceSheetBegin (..)
+, HasBalanceSheetEnd (..), HasProfitLoss (..), HasCashFlow (..)
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..)
 , FinType, FinStat
