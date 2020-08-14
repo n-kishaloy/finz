@@ -14,7 +14,7 @@ import qualified Finz as F
 import qualified Finz.Statements as S
 import Finz.Statements (HasStatuz(..), HasChk (..), HasShk(..)) -- pollution
 import Finz.Statements (BsTyp (..), PlTyp (..), CfTyp (..), GetRecords (..)) 
-import Finz.Statements (GetAccountz(..)  )
+import Finz.Statements (GetAccountz(..), GetStatementz (..)  )
 -- pollution
 
 import Data.Time (Day, fromGregorian)
@@ -127,6 +127,18 @@ main = do
   quickCheck $ S.cfStringToTyp ("Fcfd"::Text) == Just S.Fcfd
   quickCheck $ S.cfStringToTyp ("FcFd"::Text) == Nothing
   quickCheck $ S.cfStringToTyp ("DisPpe"::Text) == Just S.DisPpe
+
+  quickCheck $ S.stringToTyp ("Cash"::Text) == Just S.Cash
+  quickCheck $ S.stringToTyp ("ComonStock"::Text) == (Nothing::Maybe BsTyp) 
+  quickCheck $ S.stringToTyp ("BondsPayable"::Text) == Just S.BondsPayable
+
+  quickCheck $ S.stringToTyp ("OtherIncome"::Text) == Just S.OtherIncome
+  quickCheck $ S.stringToTyp ("OthIncome"::Text) == (Nothing::Maybe PlTyp)
+  quickCheck $ S.stringToTyp ("Pat"::Text) == Just S.Pat
+
+  quickCheck $ S.stringToTyp ("Fcfd"::Text) == Just S.Fcfd
+  quickCheck $ S.stringToTyp ("FcFd"::Text) == (Nothing::Maybe CfTyp)
+  quickCheck $ S.stringToTyp ("DisPpe"::Text) == Just S.DisPpe
 
   print $ "Balance Sheet"
 
@@ -354,8 +366,8 @@ main = do
       S.balanceSheetStatuz = S.Unset,
       S.balanceSheetRec = 
         Hm.fromList [ 
-              (Cash,                30.45)
-          ,   (CurrentReceivables,  80.56) 
+              (Cash,                22.96)
+          ,   (CurrentReceivables,  90.88) 
           ]
     }
  
@@ -381,9 +393,72 @@ main = do
         ]
     }
 
-  -- let Just mka = S.mkAccountz b1 b2 pl cf
-  -- print $ "mka"; print $ mka
+  let Just mka = S.mkAccountz b1 b2 pl cf
   -- print $ "spl"; print $ S.splitAccountz mka
+
+  let Just ska = mka !^%* S.BalanceSheet {
+      S.balanceSheetDatez = (fromGregorian 2018 3 31),
+      S.balanceSheetStatuz = S.Unset,
+      S.balanceSheetRec = 
+        Hm.fromList [ 
+              (S.CurrentAdvances,                 87.58)
+          ,   (S.AccountPayables,                 25.98) 
+          ]
+    }
+
+  quickCheck $ (ska !^> S.CurrentAdvances) =~ Just 87.58
+  quickCheck $ (ska !^> S.Cash) =~ Just 0.0
+  quickCheck $ (ska !>> S.Cash) =~ Just 22.96
+
+  let Just ska = mka !>%* S.BalanceSheet {
+      S.balanceSheetDatez = (fromGregorian 2019 3 31),
+      S.balanceSheetStatuz = S.Unset,
+      S.balanceSheetRec = 
+        Hm.fromList [ 
+              (S.CurrentAdvances,                 87.58)
+          ,   (S.AccountPayables,                 25.98) 
+          ]
+    }
+
+  quickCheck $ (ska !>> S.CurrentAdvances) =~ Just 87.58
+  quickCheck $ (ska !>> S.Cash) =~ Just 0.0
+  quickCheck $ (ska !^> S.Cash) =~ Just 30.45
+
+
+  let Just ska = mka !^%* S.ProfitLoss {
+      S.profitLossDateBegin = (fromGregorian 2018 3 31),
+      S.profitLossDateEnd = (fromGregorian 2019 3 31),
+      S.profitLossStatuz = S.Unset,
+      S.profitLossRec = 
+        Hm.fromList [ 
+              (S.OperatingRevenue,                62.58)
+          ,   (S.Pat,                             12.57) 
+          ]
+    }
+
+  quickCheck $ (ska !^> S.OperatingRevenue) =~ Just 62.58
+
+  let Just ska = mka !^%* S.CashFlow {
+      S.cashFlowDateBegin = (fromGregorian 2018 3 31),
+      S.cashFlowDateEnd = (fromGregorian 2019 3 31),
+      S.cashFlowStatuz = S.Unset,
+      S.cashFlowRec = 
+        Hm.fromList [ 
+              (S.CashFlowInvestments,               63.45)
+          ,   (S.Fcfd,                              72.12) 
+          ]
+    }
+
+  quickCheck $ (ska !^> S.Fcfd) =~ Just 72.12
+
+  print $ toPSQLArray $ Hm.fromList [ 
+      (Cash,                30.45)
+    , (CurrentReceivables,  80.56) 
+    ]
+
+  print $ show S.Cash
+  -- print "mka"; print mka
+  -- print "ska"; print ska
 
   print $ "Bye"
 

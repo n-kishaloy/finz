@@ -5,7 +5,7 @@
 
 module Finz.Statements
 ( BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statementz (..)
-, Accountz (..), GetAccountz (..)
+, Accountz (..), GetAccountz (..), GetStatementz (..)
 , balShBegin, balShEnd, profLoss, cashFl, mkAccountz, splitAccountz
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
@@ -14,8 +14,8 @@ module Finz.Statements
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..)
 , GetRecords (..)
-, GetPSQLArray (..), GetJsonz (..)
 , bsStringToTyp, plStringToTyp , cfStringToTyp
+, FinType, FinStat
 
 ) where
 
@@ -284,10 +284,6 @@ instance GetRecords CashFlow CfTyp where
   (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
-class GetJsonz a where
-  toJsonz :: FinStat a => a -> String
-  fromJsonz :: FinStat a => String -> a
-
 rdJson :: String -> Statementz  
 rdJson s = undefined
 
@@ -356,6 +352,11 @@ class GetAccountz a where
   x !^%% [] = return x
   x !^%% (y:ys) = x !^% y >>= (!^%% ys)
 
+  stringToTyp :: FinType a => Text -> Maybe a
+
+  toPSQLArray :: FinType a => Hm.HashMap a Double -> Text
+  toPSQLArray x = T.concat [("{"::Text), p, ("}"::Text)] where
+    p = "Hiya"::Text -- foldl () ""::Text 
 
 
 instance GetAccountz BsTyp where
@@ -381,7 +382,7 @@ instance GetAccountz BsTyp where
     p <- (x ^. balanceSheetEnd)
     return $ x & balanceSheetEnd .~ (Just (Hm.insert k v p))
 
-
+  stringToTyp s = Hm.lookup s bsTypMap
 
 instance GetAccountz PlTyp where
   (!>>) x t = do p <- x^.profitLoss; return $ Hm.lookupDefault 0.0 t p
@@ -395,7 +396,7 @@ instance GetAccountz PlTyp where
     p <- (x ^. profitLoss)
     return $ x & profitLoss .~ (Just (Hm.insert k v p))
 
-
+  stringToTyp s = Hm.lookup s plTypMap
 
 instance GetAccountz CfTyp where
   (!>>) x t = do p <- x^.cashFlow; return $ Hm.lookupDefault 0.0 t p
@@ -409,6 +410,7 @@ instance GetAccountz CfTyp where
     p <- (x ^. cashFlow)
     return $ x & cashFlow .~ (Just (Hm.insert k v p))
 
+  stringToTyp s = Hm.lookup s cfTypMap
 
 balShBegin :: Accountz -> Maybe BalanceSheet
 balShBegin x = (x ^. balanceSheetBegin) >>= 
@@ -451,20 +453,29 @@ mkAccountz bsBeg bsEnd (Just pl) cf =
 splitAccountz :: Accountz -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
 splitAccountz x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
 
-class FinType a => GetPSQLArray a where
-  readPSQLArray :: [Text] -> Hm.HashMap a Double
-  writePSQLArray :: Hm.HashMap a Double -> [Text]
+class GetStatementz a where
+  toJsonz :: FinStat a => a -> String
+  fromJsonz :: FinStat a => String -> a
 
-instance GetPSQLArray BsTyp where
-  readPSQLArray x = undefined
-  writePSQLArray s = undefined
+  (!>%*) :: FinStat a => Accountz -> a -> Maybe Accountz
+  (!^%*) :: FinStat a => Accountz -> a -> Maybe Accountz
+  (!^%*) = (!>%*)
 
-instance GetPSQLArray PlTyp where
-  readPSQLArray x = undefined
-  writePSQLArray s = undefined
+instance GetStatementz BalanceSheet where
+  (!^%*) x s = if x^.dateBegin == s^.datez 
+    then Just $ x & balanceSheetBegin .~ (Just (s ^. rec))
+    else Nothing
 
-instance GetPSQLArray CfTyp where
-  readPSQLArray x = undefined
-  writePSQLArray s = undefined
+  (!>%*) x s = if x^.dateEnd == s^.datez 
+    then Just $ x & balanceSheetEnd .~ (Just (s ^. rec))
+    else Nothing
 
+instance GetStatementz ProfitLoss where
+  (!>%*) x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
+    then Just $ x & profitLoss .~ (Just (s ^. rec))
+    else Nothing
 
+instance GetStatementz CashFlow where
+  (!>%*) x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
+    then Just $ x & cashFlow .~ (Just (s ^. rec))
+    else Nothing
