@@ -5,7 +5,7 @@
 
 module Finz.Statements
 ( BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statementz (..)
-, Accountz (..), GetAccountz (..), GetStatementz (..)
+, Accountz (..), GetAccountz (..), GetStatementz (..), GetRecords (..)
 , balShBegin, balShEnd, profLoss, cashFl, mkAccountz, splitAccountz
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
@@ -13,8 +13,6 @@ module Finz.Statements
 , HasDatez (..), HasDateBegin (..), HasDateEnd (..)
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..)
-, GetRecords (..)
-, bsStringToTyp, plStringToTyp , cfStringToTyp
 , FinType, FinStat
 
 ) where
@@ -242,23 +240,23 @@ instance Approx CashFlow where
 instance Approx Statementz where 
   x =~ y = undefined
 
-class GetRecords a b where
-  (!!>) :: (FinStat a, FinType b) => a -> b -> Double         -- Get
-  (!!?) :: (FinStat a, FinType b) => a -> b -> Maybe Double   -- Maybe Get
-  (!!~) :: (FinStat a, FinType b) => a -> [(b,Double)] -> a   -- Set/Reset 
-  (!!+) :: (FinStat a, FinType b) => a -> (b,Double) -> a     -- Add/Create 
+class (FinStat a, FinType b) => GetRecords a b where
+  (!!>) :: a -> b -> Double         -- Get
+  (!!?) :: a -> b -> Maybe Double   -- Maybe Get
+  (!!~) :: a -> [(b,Double)] -> a   -- Set/Reset 
+  (!!+) :: a -> (b,Double) -> a     -- Add/Create 
 
-  (!!++) :: (FinStat a, FinType b) => a -> [(b,Double)] -> a -- List Add
+  (!!++) :: a -> [(b,Double)] -> a -- List Add
   (!!++) x [] = x
   (!!++) x (y:ys) = (x !!+ y) !!++ ys
 
-  (!!%) :: (FinStat a, FinType b) => a -> (b,Double) -> a     -- Update/Create
+  (!!%) :: a -> (b,Double) -> a     -- Update/Create
 
-  (!!%%) :: (FinStat a, FinType b) => a -> [(b,Double)] -> a -- List Upd
+  (!!%%) :: a -> [(b,Double)] -> a -- List Upd
   (!!%%) x [] = x
   (!!%%) x (y:ys) = (x !!% y) !!%% ys
 
-  recToList :: (FinStat a, FinType b) => a -> [(b,Double)]    -- Rec to List
+  recToList :: a -> [(b,Double)]    -- Rec to List
 
 instance GetRecords BalanceSheet BsTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
@@ -284,29 +282,15 @@ instance GetRecords CashFlow CfTyp where
   (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
-rdJson :: String -> Statementz  
-rdJson s = undefined
-
-wrJson :: Statementz -> String
-wrJson s = undefined
 
 bsTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
   where xf = enumFrom minBound::[BsTyp] 
 
-bsStringToTyp :: Text -> Maybe BsTyp
-bsStringToTyp s = Hm.lookup s bsTypMap
-
 plTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
   where xf = enumFrom minBound::[PlTyp] 
 
-plStringToTyp :: Text -> Maybe PlTyp
-plStringToTyp s = Hm.lookup s plTypMap
-
 cfTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
   where xf = enumFrom minBound::[CfTyp] 
-
-cfStringToTyp :: Text -> Maybe CfTyp
-cfStringToTyp s = Hm.lookup s cfTypMap
 
 data Accountz = Accountz
   { accountzDateBegin         :: Day
@@ -319,45 +303,41 @@ data Accountz = Accountz
 
 makeFields ''Accountz
 
-class GetAccountz a where
-  (!>>) :: FinType a => Accountz -> a -> Maybe Double             -- Get
-  (!^>) :: FinType a => Accountz -> a -> Maybe Double
+class FinType a => GetAccountz a where
+  (!>>) :: Accountz -> a -> Maybe Double             -- Get
+  (!^>) :: Accountz -> a -> Maybe Double
   (!^>) = (!>>)
 
-  (!>~) :: FinType a => Accountz -> [(a,Double)] -> Accountz      -- Set/Reset
-  (!^~) :: FinType a => Accountz -> [(a,Double)] -> Accountz      -- Set/Reset
+  (!>~) :: Accountz -> [(a,Double)] -> Accountz      -- Set/Reset
+  (!^~) :: Accountz -> [(a,Double)] -> Accountz      -- Set/Reset
   (!^~) = (!>~)
 
-  (!>+) :: FinType a => Accountz -> (a,Double) -> Maybe Accountz  -- Add/Create
-  (!^+) :: FinType a => Accountz -> (a,Double) -> Maybe Accountz  -- Add/Create
+  (!>+) :: Accountz -> (a,Double) -> Maybe Accountz  -- Add/Create
+  (!^+) :: Accountz -> (a,Double) -> Maybe Accountz  -- Add/Create
   (!^+) = (!>+)
 
-  (!>%) :: FinType a => Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
-  (!^%) :: FinType a => Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
+  (!>%) :: Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
+  (!^%) :: Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
   (!^%) = (!>%)
 
-  (!>++) :: FinType a => Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  (!>++) :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
   x !>++ [] = return x
   x !>++ (y:ys) = x !>+ y >>= (!>++ ys)
 
-  (!^++) :: FinType a => Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  (!^++) :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
   x !^++ [] = return x
   x !^++ (y:ys) = x !^+ y >>= (!^++ ys)
 
-  (!>%%) :: FinType a => Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
+  (!>%%) :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
   x !>%% [] = return x
   x !>%% (y:ys) = x !>% y >>= (!>%% ys)
 
-  (!^%%) :: FinType a => Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
+  (!^%%) :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
   x !^%% [] = return x
   x !^%% (y:ys) = x !^% y >>= (!^%% ys)
 
-  stringToTyp :: FinType a => Text -> Maybe a
-
-  toPSQLArray :: FinType a => Hm.HashMap a Double -> Text
-  toPSQLArray x = T.concat [("{"::Text), p, ("}"::Text)] where
-    p = "Hiya"::Text -- foldl () ""::Text 
-
+  stringToTyp :: Text -> Maybe a
+  
 
 instance GetAccountz BsTyp where
   (!^>) x t = do p <- x^.balanceSheetBegin; return $ Hm.lookupDefault 0.0 t p

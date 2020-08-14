@@ -115,19 +115,7 @@ main = do
   quickCheck $ Cash /~ CurrentAdvances
   quickCheck $ OperatingRevenue =~ OperatingRevenue
   quickCheck $ CashFlowFinancing /~ CashFlowInvestments
-
-  quickCheck $ S.bsStringToTyp ("Cash"::Text) == Just S.Cash
-  quickCheck $ S.bsStringToTyp ("ComonStock"::Text) == Nothing
-  quickCheck $ S.bsStringToTyp ("BondsPayable"::Text) == Just S.BondsPayable
-
-  quickCheck $ S.plStringToTyp ("OtherIncome"::Text) == Just S.OtherIncome
-  quickCheck $ S.plStringToTyp ("OthIncome"::Text) == Nothing
-  quickCheck $ S.plStringToTyp ("Pat"::Text) == Just S.Pat
-
-  quickCheck $ S.cfStringToTyp ("Fcfd"::Text) == Just S.Fcfd
-  quickCheck $ S.cfStringToTyp ("FcFd"::Text) == Nothing
-  quickCheck $ S.cfStringToTyp ("DisPpe"::Text) == Just S.DisPpe
-
+  
   quickCheck $ S.stringToTyp ("Cash"::Text) == Just S.Cash
   quickCheck $ S.stringToTyp ("ComonStock"::Text) == (Nothing::Maybe BsTyp) 
   quickCheck $ S.stringToTyp ("BondsPayable"::Text) == Just S.BondsPayable
@@ -451,12 +439,6 @@ main = do
 
   quickCheck $ (ska !^> S.Fcfd) =~ Just 72.12
 
-  print $ toPSQLArray $ Hm.fromList [ 
-      (Cash,                30.45)
-    , (CurrentReceivables,  80.56) 
-    ]
-
-  print $ show S.Cash
   -- print "mka"; print mka
   -- print "ska"; print ska
 
