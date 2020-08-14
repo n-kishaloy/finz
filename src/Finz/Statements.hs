@@ -337,7 +337,7 @@ class FinType a => GetAccountz a where
   x !^%% (y:ys) = x !^% y >>= (!^%% ys)
 
   stringToTyp :: Text -> Maybe a
-  
+
 
 instance GetAccountz BsTyp where
   (!^>) x t = do p <- x^.balanceSheetBegin; return $ Hm.lookupDefault 0.0 t p
@@ -433,12 +433,12 @@ mkAccountz bsBeg bsEnd (Just pl) cf =
 splitAccountz :: Accountz -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
 splitAccountz x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
 
-class GetStatementz a where
-  toJsonz :: FinStat a => a -> String
-  fromJsonz :: FinStat a => String -> a
+class FinStat a => GetStatementz a where
+  toJsonz :: a -> String
+  fromJsonz :: String -> a
 
-  (!>%*) :: FinStat a => Accountz -> a -> Maybe Accountz
-  (!^%*) :: FinStat a => Accountz -> a -> Maybe Accountz
+  (!>%*) :: Accountz -> a -> Maybe Accountz
+  (!^%*) :: Accountz -> a -> Maybe Accountz
   (!^%*) = (!>%*)
 
 instance GetStatementz BalanceSheet where
