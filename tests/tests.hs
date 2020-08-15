@@ -268,7 +268,7 @@ main = do
           , (AccumulatedDepreciation,       52.47) 
           ]
 
-  print "acz = "; print acz
+  -- print "acz = "; print acz
   let pz = acz
 
   let Just acz = do  -- Using do notation but not so useful
@@ -293,7 +293,7 @@ main = do
   quickCheck $ acz !^> CurrentLoans =~ Just 0.0
   quickCheck $ acz !^> OperatingRevenue =~ Just 53.35
 
-  print "acz = "; print acz
+  -- print "acz = "; print acz
 
   let Just xz = (acz !^++ [(Cash, 10.0), (CurrentReceivables, 15.0)]) >>= 
         (!^++ [(OperatingRevenue, -3.35), (Pat, 2.58)]) >>=
