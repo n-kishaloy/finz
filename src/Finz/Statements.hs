@@ -263,24 +263,30 @@ instance GetRecords BalanceSheet BsTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
   (!!~) x r = x & rec .~ (Hm.fromList r)
-  (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
-  (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
+  (!!+) x (k,v) = if v =~ 0.0 then x else 
+    x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
+  (!!%) x (k,v) = if v =~ 0.0 then x else 
+    x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
 instance GetRecords ProfitLoss PlTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
   (!!~) x r = x & rec .~ (Hm.fromList r)
-  (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol->nw+ol) k v (x^.rec))
-  (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
+  (!!+) x (k,v) = if v =~ 0.0 then x else 
+    x & rec .~ (Hm.insertWith (\nw ol->nw+ol) k v (x^.rec))
+  (!!%) x (k,v) = if v =~ 0.0 then x else 
+    x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
 instance GetRecords CashFlow CfTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
   (!!~) x r = x & rec .~ (Hm.fromList r)
-  (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
-  (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
+  (!!+) x (k,v) = if v =~ 0.0 then x else 
+    x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
+  (!!%) x (k,v) = if v =~ 0.0 then x else 
+    x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
 
@@ -347,19 +353,19 @@ instance GetAccountz BsTyp where
   (!^~) x r = x & balanceSheetBegin .~ (Just (Hm.fromList r))
   (!>~) x r = x & balanceSheetEnd .~ (Just (Hm.fromList r))
 
-  (!^+) x (k,v) = do 
+  (!^+) x (k,v) = if v =~ 0.0 then (Just x) else do 
     p <- (x ^. balanceSheetBegin)
     return $ x&balanceSheetBegin .~(Just (Hm.insertWith (\nw ol->nw+ol) k v p))
 
-  (!>+) x (k,v) = do 
+  (!>+) x (k,v) = if v =~ 0.0 then (Just x) else do 
     p <- (x ^. balanceSheetEnd)
     return $ x & balanceSheetEnd .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
 
-  (!^%) x (k,v) = do 
+  (!^%) x (k,v) = if v =~ 0.0 then (Just x) else do 
     p <- (x ^. balanceSheetBegin)
     return $ x & balanceSheetBegin .~ (Just (Hm.insert k v p))
 
-  (!>%) x (k,v) = do 
+  (!>%) x (k,v) = if v =~ 0.0 then (Just x) else do 
     p <- (x ^. balanceSheetEnd)
     return $ x & balanceSheetEnd .~ (Just (Hm.insert k v p))
 
@@ -369,11 +375,11 @@ instance GetAccountz PlTyp where
   (!>>) x t = do p <- x^.profitLoss; return $ Hm.lookupDefault 0.0 t p
   (!>~) x r = x & profitLoss .~ (Just (Hm.fromList r))
 
-  (!>+) x (k,v) = do 
+  (!>+) x (k,v) = if v =~ 0.0 then (Just x) else do 
     p <- (x ^. profitLoss)
     return $ x & profitLoss .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
 
-  (!>%) x (k,v) = do 
+  (!>%) x (k,v) = if v =~ 0.0 then (Just x) else do 
     p <- (x ^. profitLoss)
     return $ x & profitLoss .~ (Just (Hm.insert k v p))
 
@@ -383,11 +389,11 @@ instance GetAccountz CfTyp where
   (!>>) x t = do p <- x^.cashFlow; return $ Hm.lookupDefault 0.0 t p
   (!>~) x r = x & cashFlow .~ (Just (Hm.fromList r))
 
-  (!>+) x (k,v) = do 
+  (!>+) x (k,v) = if v =~ 0.0 then (Just x) else do 
     p <- (x ^. cashFlow)
     return $ x & cashFlow .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
 
-  (!>%) x (k,v) = do 
+  (!>%) x (k,v) = if v =~ 0.0 then (Just x) else do 
     p <- (x ^. cashFlow)
     return $ x & cashFlow .~ (Just (Hm.insert k v p))
 
