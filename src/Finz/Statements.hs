@@ -246,16 +246,15 @@ class (FinStat a, FinType b) => GetRecords a b where
   (!!?) :: a -> b -> Maybe Double   -- Maybe Get
   (!!~) :: a -> [(b,Double)] -> a   -- Set/Reset 
   (!!+) :: a -> (b,Double) -> a     -- Add/Create 
-
-  (!!++) :: a -> [(b,Double)] -> a -- List Add
-  (!!++) x [] = x
-  (!!++) x (y:ys) = (x !!+ y) !!++ ys
-
   (!!%) :: a -> (b,Double) -> a     -- Update/Create
 
-  (!!%%) :: a -> [(b,Double)] -> a -- List Upd
-  (!!%%) x [] = x
-  (!!%%) x (y:ys) = (x !!% y) !!%% ys
+  addToItems :: a -> [(b,Double)] -> a -- List Add
+  addToItems x [] = x
+  addToItems x (y:ys) = (x !!+ y) `addToItems` ys
+
+  updateItems :: a -> [(b,Double)] -> a -- List Upd
+  updateItems x [] = x
+  updateItems x (y:ys) = (x !!% y) `updateItems` ys
 
   recToList :: a -> [(b,Double)]    -- Rec to List
 
@@ -327,21 +326,21 @@ class FinType a => GetAccountz a where
   (!^%) :: Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
   (!^%) = (!>%)
 
-  (!>++) :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
-  x !>++ [] = return x
-  x !>++ (y:ys) = x !>+ y >>= (!>++ ys)
+  addToEndItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  x `addToEndItems` [] = return x
+  x `addToEndItems` (y:ys) = x !>+ y >>= (`addToEndItems` ys)
 
-  (!^++) :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
-  x !^++ [] = return x
-  x !^++ (y:ys) = x !^+ y >>= (!^++ ys)
+  addToBeginItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  x `addToBeginItems` [] = return x
+  x `addToBeginItems` (y:ys) = x !^+ y >>= (`addToBeginItems` ys)
 
-  (!>%%) :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
-  x !>%% [] = return x
-  x !>%% (y:ys) = x !>% y >>= (!>%% ys)
+  updateEndItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
+  x `updateEndItems` [] = return x
+  x `updateEndItems` (y:ys) = x !>% y >>= (`updateEndItems` ys)
 
-  (!^%%) :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
-  x !^%% [] = return x
-  x !^%% (y:ys) = x !^% y >>= (!^%% ys)
+  updateBeginItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
+  x `updateBeginItems` [] = return x
+  x `updateBeginItems` (y:ys) = x !^% y >>= (`updateBeginItems` ys)
 
   stringToTyp :: Text -> Maybe a
 
@@ -444,25 +443,25 @@ class FinStat a => GetStatementz a where
   toJsonz :: a -> String
   fromJsonz :: String -> a
 
-  (!>%*) :: Accountz -> a -> Maybe Accountz
-  (!^%*) :: Accountz -> a -> Maybe Accountz
-  (!^%*) = (!>%*)
+  updateEndStatement :: Accountz -> a -> Maybe Accountz
+  updateBeginStatement :: Accountz -> a -> Maybe Accountz
+  updateBeginStatement = updateEndStatement
 
 instance GetStatementz BalanceSheet where
-  (!^%*) x s = if x^.dateBegin == s^.datez 
+  updateBeginStatement x s = if x^.dateBegin == s^.datez 
     then Just $ x & balanceSheetBegin .~ (Just (s ^. rec))
     else Nothing
 
-  (!>%*) x s = if x^.dateEnd == s^.datez 
+  updateEndStatement x s = if x^.dateEnd == s^.datez 
     then Just $ x & balanceSheetEnd .~ (Just (s ^. rec))
     else Nothing
 
 instance GetStatementz ProfitLoss where
-  (!>%*) x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
+  updateEndStatement x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
     then Just $ x & profitLoss .~ (Just (s ^. rec))
     else Nothing
 
 instance GetStatementz CashFlow where
-  (!>%*) x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
+  updateEndStatement x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
     then Just $ x & cashFlow .~ (Just (s ^. rec))
     else Nothing

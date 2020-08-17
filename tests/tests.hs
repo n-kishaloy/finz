@@ -192,7 +192,7 @@ main = do
     }
 
   let xs = cf
-  let cf = xs !!++ [
+  let cf = xs `addToItems` [
           (DisPpe, 23.58), (OtherCfInvestments, 20.00)
           ]
 
@@ -206,7 +206,7 @@ main = do
   quickCheck $ cf !!> OtherCfInvestments =~ 68.58
 
   let xs = cf
-  let cf = xs !!%% [
+  let cf = xs `updateItems` [
           (DisPpe, 22.25), (CfInvestmentDividends, 78.58)
           ]
 
@@ -257,9 +257,9 @@ main = do
   quickCheck $ (xz !>> Cash) =~ Just 24.45
   quickCheck $ (xz !>> OperatingRevenue) =~ Just 58.35
 
-  -- print $ xz !^++ [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
+  -- print $ xz `addToBeginItems` [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
   -- print $ xz !^+ (Cash, 2.34) -- Nothing
-  -- print $ xz !^%% [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
+  -- print $ xz `updateBeginItems` [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
   -- print $ xz !^% (Cash, 2.34) -- Nothing
   -- print $ S.balShBegin xz -- Nothing
 
@@ -295,13 +295,13 @@ main = do
 
   -- print "acz = "; print acz
 
-  let Just xz = (acz !^++ [(Cash, 10.0), (CurrentReceivables, 15.0)]) >>= 
-        (!^++ [(OperatingRevenue, -3.35), (Pat, 2.58)]) >>=
-        (!^++ [(Cash, 15.0), (AccumulatedDepreciation, -2.47)]) >>=
-        (!^++ [(CashFlowFinancing, 12.0), (CashFlowInvestments, -5.0)]) >>=
-        (!>++ [(Cash, 0.55), (CurrentAdvances, -2.5), (AccumulatedDepreciation, 12.7)]) >>=
-        (!>++ [(CashFlowFinancing, -2.0), (Fcff, 2.73)]) >>=
-        (!>++ [(OperatingRevenue, -15.0), (Pbitda, 3.58)])
+  let Just xz = (acz `addToBeginItems` [(Cash, 10.0), (CurrentReceivables, 15.0)]) >>= 
+        (`addToBeginItems` [(OperatingRevenue, -3.35), (Pat, 2.58)]) >>=
+        (`addToBeginItems` [(Cash, 15.0), (AccumulatedDepreciation, -2.47)]) >>=
+        (`addToBeginItems` [(CashFlowFinancing, 12.0), (CashFlowInvestments, -5.0)]) >>=
+        (`addToEndItems` [(Cash, 0.55), (CurrentAdvances, -2.5), (AccumulatedDepreciation, 12.7)]) >>=
+        (`addToEndItems` [(CashFlowFinancing, -2.0), (Fcff, 2.73)]) >>=
+        (`addToEndItems` [(OperatingRevenue, -15.0), (Pbitda, 3.58)])
 
   quickCheck $ xz !>> Cash =~ Just 35.0
   quickCheck $ xz !^> Cash =~ Just 115.0
@@ -323,11 +323,11 @@ main = do
         (!^% (Fcfd, 15.89)) >>=
         (!>% (CashFlowFinancing, -3.50))
 
-  let Just xz = (acz !^%% [(Pat, 22.65), (Depreciation, 56.58)]) >>=
-        (!>%% [(CurrentLoans, 78.02), (IntangibleAssets, 65.43)]) >>=
-        (!>++ [(Cash, -5.0)]) >>=
-        (!>%% [(NonOperatingRevenue, 67.65), (Amortization, 54.32)]) >>=
-        (!^%% [(OtherCfInvestments, 84.56), (StockSales, 22.54)])
+  let Just xz = (acz `updateBeginItems` [(Pat, 22.65), (Depreciation, 56.58)]) >>=
+        (`updateEndItems` [(CurrentLoans, 78.02), (IntangibleAssets, 65.43)]) >>=
+        (`addToEndItems` [(Cash, -5.0)]) >>=
+        (`updateEndItems` [(NonOperatingRevenue, 67.65), (Amortization, 54.32)]) >>=
+        (`updateBeginItems` [(OtherCfInvestments, 84.56), (StockSales, 22.54)])
 
   quickCheck $ xz !>> Cash =~ Just 10.0
   quickCheck $ xz !^> Cash =~ Just 34.0
@@ -386,7 +386,7 @@ main = do
   let Just mka = S.mkAccountz b1 b2 pl cf
   -- print $ "spl"; print $ S.splitAccountz mka
 
-  let Just ska = mka !^%* S.BalanceSheet {
+  let Just ska = mka `updateBeginStatement` S.BalanceSheet {
       S.balanceSheetDatez = (fromGregorian 2018 3 31),
       S.balanceSheetStatuz = S.Unset,
       S.balanceSheetRec = 
@@ -400,7 +400,7 @@ main = do
   quickCheck $ (ska !^> S.Cash) =~ Just 0.0
   quickCheck $ (ska !>> S.Cash) =~ Just 22.96
 
-  let Just ska = mka !>%* S.BalanceSheet {
+  let Just ska = mka `updateEndStatement` S.BalanceSheet {
       S.balanceSheetDatez = (fromGregorian 2019 3 31),
       S.balanceSheetStatuz = S.Unset,
       S.balanceSheetRec = 
@@ -415,7 +415,7 @@ main = do
   quickCheck $ (ska !^> S.Cash) =~ Just 30.45
 
 
-  let Just ska = mka !^%* S.ProfitLoss {
+  let Just ska = mka `updateBeginStatement` S.ProfitLoss {
       S.profitLossDateBegin = (fromGregorian 2018 3 31),
       S.profitLossDateEnd = (fromGregorian 2019 3 31),
       S.profitLossStatuz = S.Unset,
@@ -428,7 +428,7 @@ main = do
 
   quickCheck $ (ska !^> S.OperatingRevenue) =~ Just 62.58
 
-  let Just ska = mka !^%* S.CashFlow {
+  let Just ska = mka `updateBeginStatement` S.CashFlow {
       S.cashFlowDateBegin = (fromGregorian 2018 3 31),
       S.cashFlowDateEnd = (fromGregorian 2019 3 31),
       S.cashFlowStatuz = S.Unset,
