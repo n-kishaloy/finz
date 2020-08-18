@@ -24,6 +24,7 @@ import Data.Time (Day)
 import qualified Data.HashMap.Strict as Hm
 import qualified Data.Text as T
 import Data.Text (Text)
+import Data.List (foldl')
 
 import Utilz.Numeric (Approx (..))
 
@@ -344,6 +345,16 @@ class FinType a => GetAccountz a where
 
   stringToTyp :: Text -> Maybe a
 
+  recToJSON :: Show a =>  Hm.HashMap a Double -> Text
+  recToJSON s = T.pack (concat ["{",ps,"}"]) where
+    _:ps = foldl' f "" $ Hm.toList s
+    f v (x,y) = if y =~ 0.0 then v else concat [v,",\"",show x,"\":", show y] 
+
+  jsonToRec :: Text -> Maybe (Hm.HashMap a Double)
+  jsonToRec s = undefined
+
+
+
 
 instance GetAccountz BsTyp where
   (!^>) x t = do p <- x^.balanceSheetBegin; return $ Hm.lookupDefault 0.0 t p
@@ -438,6 +449,13 @@ mkAccountz bsBeg bsEnd (Just pl) cf =
 
 splitAccountz :: Accountz -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
 splitAccountz x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
+
+accountzToJson :: Accountz -> Text
+accountzToJson x = undefined
+
+jsonToAccountz :: Text -> Maybe Accountz
+jsonToAccountz s = undefined
+
 
 class FinStat a => GetStatementz a where
   toJsonz :: a -> String
