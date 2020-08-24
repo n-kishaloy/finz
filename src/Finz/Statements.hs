@@ -1,5 +1,5 @@
 {-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE Strict, OverloadedStrings #-}
+{-# LANGUAGE Strict, OverloadedStrings, FlexibleContexts, RankNTypes #-}
 {-# LANGUAGE TemplateHaskell, FunctionalDependencies, FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
@@ -13,7 +13,7 @@ module Finz.Statements
 , HasDatez (..), HasDateBegin (..), HasDateEnd (..), HasBalanceSheetBegin (..)
 , HasBalanceSheetEnd (..), HasProfitLoss (..), HasCashFlow (..)
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
-, HasChecker(..)
+, HasChecker(..), accountzToJson, jsonToAccountz
 , FinType, FinStat
 
 ) where
@@ -22,14 +22,25 @@ import GHC.Generics (Generic)
 import Data.Hashable
 import Data.Time (Day)
 import qualified Data.HashMap.Strict as Hm
+
 import qualified Data.Text as T
 import Data.Text (Text)
+import Data.Text.Read (rational)
+import Data.Text.Encoding (encodeUtf8)
+
 import Data.List (foldl')
+import qualified Data.Aeson as As
+import Data.Scientific (toRealFloat)
 
 import Utilz.Numeric (Approx (..))
 
+import Debug.Trace (trace, traceM)
+
 import Control.Lens
 -- import Control.Lens.TH
+
+debug = flip trace
+
 
 data Checker = Checker { checkerStatuz :: Int } deriving (Show)
 makeFields ''Checker
@@ -310,7 +321,7 @@ data Accountz = Accountz
 
 makeFields ''Accountz
 
-class FinType a => GetAccountz a where
+class (FinType a, Show a) => GetAccountz a where
   (!>>) :: Accountz -> a -> Maybe Double             -- Get
   (!^>) :: Accountz -> a -> Maybe Double
   (!^>) = (!>>)
@@ -350,11 +361,17 @@ class FinType a => GetAccountz a where
     _:ps = foldl' f "" $ Hm.toList s
     f v (x,y) = if y =~ 0.0 then v else concat [v,",\"",show x,"\":", show y] 
 
-  jsonToRec :: Text -> Maybe (Hm.HashMap a Double)
-  jsonToRec s = undefined
+  jRec :: (Hashable a, Eq a) => As.Object -> Either String (Hm.HashMap a Double)
+  jRec x = (foldl' f (Right []) (Hm.toList x)) >>= \y -> return (Hm.fromList y) 
+    where
+    f :: GetAccountz a => Either String [(a,Double)] -> (Text,As.Value) -> Either String [(a,Double)]
+    f (Right x) (u,As.Number v) = case stringToTyp u of 
+      Just p -> Right $ (p,(toRealFloat v)::Double):x 
+      otherwise -> Left "Failed"
+    f _ _ = Left "Failed"
 
-
-
+  jsonToRec :: (Hashable a, Eq a) => Text -> Either String (Hm.HashMap a Double)
+  jsonToRec s = As.eitherDecodeStrict (encodeUtf8 s) >>= jRec
 
 instance GetAccountz BsTyp where
   (!^>) x t = do p <- x^.balanceSheetBegin; return $ Hm.lookupDefault 0.0 t p
@@ -450,8 +467,25 @@ mkAccountz bsBeg bsEnd (Just pl) cf =
 splitAccountz :: Accountz -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
 splitAccountz x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
 
+
 accountzToJson :: Accountz -> Text
-accountzToJson x = undefined
+accountzToJson x = 
+  T.concat["{",dbeg,",",dend,",",b1J,",",b2J,",",plJ,",",cfJ,"}"] 
+  where
+  dbeg = T.concat["\"dateBegin\":\"", T.pack $ show (x ^. dateBegin),"\""]
+  dend = T.concat["\"dateEnd\":\"", T.pack $ show (x ^. dateEnd),"\""]
+
+  b1 = x ^. balanceSheetBegin; b1J = T.concat ["\"balanceSheetBegin\":",b1x]
+  b1x = case b1 of Nothing -> "null"; Just b1q -> recToJSON b1q
+
+  b2 = x ^. balanceSheetEnd; b2J = T.concat ["\"balanceSheetEnd\":",b2x]
+  b2x = case b2 of Nothing -> "null"; Just b2q -> recToJSON b2q
+
+  pl = x ^. profitLoss; plJ = T.concat ["\"profitLoss\":",plx]
+  plx = case pl of Nothing -> "null"; Just plq -> recToJSON plq
+
+  cf = x ^. cashFlow; cfJ = T.concat ["\"cashFlow\":",cfx]
+  cfx = case cf of Nothing -> "null"; Just cfq -> recToJSON cfq
 
 jsonToAccountz :: Text -> Maybe Accountz
 jsonToAccountz s = undefined
@@ -463,7 +497,9 @@ class FinStat a => GetStatementz a where
 
   updateEndStatement :: Accountz -> a -> Maybe Accountz
   updateBeginStatement :: Accountz -> a -> Maybe Accountz
+  updateStatement :: Accountz -> a -> Maybe Accountz
   updateBeginStatement = updateEndStatement
+  updateStatement = updateEndStatement
 
 instance GetStatementz BalanceSheet where
   updateBeginStatement x s = if x^.dateBegin == s^.datez 

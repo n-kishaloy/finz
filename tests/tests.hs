@@ -16,12 +16,15 @@ import Finz.Statements (HasStatuz(..), HasChk (..), HasShk(..)) -- pollution
 import Finz.Statements (BsTyp (..), PlTyp (..), CfTyp (..), GetRecords (..)) 
 import Finz.Statements (GetAccountz(..), GetStatementz (..)  )
 -- pollution
+import Finz.Statements (HasRec(..), HasBalanceSheetBegin (..))
+import Finz.Statements (BalanceSheet (..), ProfitLoss (..), CashFlow (..))
 
 import Data.Time (Day, fromGregorian)
 
 import qualified Data.HashMap.Strict as Hm
 import Data.HashMap.Strict ((!), lookupDefault)
 import Data.Text (Text)
+import qualified Data.Text as T
 
 import Control.Lens ((^.),(.~),(&),at)
 
@@ -415,7 +418,7 @@ main = do
   quickCheck $ (ska !^> S.Cash) =~ Just 30.45
 
 
-  let Just ska = mka `updateBeginStatement` S.ProfitLoss {
+  let Just ska = mka `updateStatement` S.ProfitLoss {
       S.profitLossDateBegin = (fromGregorian 2018 3 31),
       S.profitLossDateEnd = (fromGregorian 2019 3 31),
       S.profitLossStatuz = S.Unset,
@@ -443,6 +446,35 @@ main = do
 
   -- print "mka"; print mka
   -- print "ska"; print ska
+
+  print "JSON"
+  let (Just b1, Just b2, Just pl, Just cf) = S.splitAccountz xz
+
+  let b1j = S.recToJSON $ b1 ^. rec
+  let b1jMod = T.replace "34.0" "-57.58" b1j
+  let Right b1Rec = S.jsonToRec b1jMod
+
+  quickCheck $ Hm.lookup Cash b1Rec =~ Just (-57.58)
+
+  let b1jMod = T.replace "Cash" "Csah" b1j
+  quickCheck $ (S.jsonToRec b1jMod :: Either String S.BsMap) == Left "Failed"
+
+  let plj = S.recToJSON $ pl ^. rec
+  let Right plRec = S.jsonToRec $ T.replace "54.32" "-28.78" plj 
+
+  quickCheck $ Hm.lookup Amortization plRec =~ Just (-28.78)
+  quickCheck $ (S.jsonToRec $ T.replace "Pbt" "Ptb" plj :: Either String S.PlMap) == Left "Failed"
+
+  let cfj = S.recToJSON $ cf ^. rec
+  let Right cfRec = S.jsonToRec $ T.replace "54.32" "-28.78" cfj 
+  
+  quickCheck $ Hm.lookup CashFlowInvestments cfRec =~ Just 25.0
+  quickCheck $ (S.jsonToRec $ T.replace "Fcff" "Fcfr" cfj :: Either String S.CfMap) == Left "Failed"
+
+  let pz = xz & balanceSheetBegin .~ Nothing
+  -- print "pz = "; print pz
+  -- print "pz json ="; print $ S.accountzToJson pz
+
 
   print $ "Bye"
 

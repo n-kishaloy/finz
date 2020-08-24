@@ -28,6 +28,8 @@ executable finz
                   ,     lens
                   ,     hashable
                   ,     unordered-containers
+                  ,     aeson
+                  ,     scientific
 
 library
     exposed-modules:    Finz, Finz.Statements
@@ -44,6 +46,9 @@ library
                   ,     hashable
                   ,     unordered-containers
                   ,     text
+                  ,     aeson
+                  ,     scientific
+
     hs-source-dirs:     src 
     default-language:   Haskell2010
 
@@ -65,5 +70,8 @@ test-suite tests
                     ,   lens
                     ,   unordered-containers
                     ,   text
+                    ,   aeson
+                    ,   scientific
+
     default-language:   Haskell2010
 
