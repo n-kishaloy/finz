@@ -20,7 +20,7 @@ module Finz.Statements
 
 import GHC.Generics (Generic)
 import Data.Hashable
-import Data.Time (Day)
+import Data.Time (Day, fromGregorian, parseTimeM, defaultTimeLocale, toGregorian)
 import qualified Data.HashMap.Strict as Hm
 
 import qualified Data.Text as T
@@ -361,17 +361,17 @@ class (FinType a, Show a) => GetAccountz a where
     _:ps = foldl' f "" $ Hm.toList s
     f v (x,y) = if y =~ 0.0 then v else concat [v,",\"",show x,"\":", show y] 
 
-  jRec :: (Hashable a, Eq a) => As.Object -> Either String (Hm.HashMap a Double)
-  jRec x = (foldl' f (Right []) (Hm.toList x)) >>= \y -> return (Hm.fromList y) 
+  jRec :: (Hashable a, Eq a) => As.Object -> Maybe (Hm.HashMap a Double)
+  jRec x = (foldl' f (Just []) (Hm.toList x)) >>= return . Hm.fromList
     where
-    f :: GetAccountz a => Either String [(a,Double)] -> (Text,As.Value) -> Either String [(a,Double)]
-    f (Right x) (u,As.Number v) = case stringToTyp u of 
-      Just p -> Right $ (p,(toRealFloat v)::Double):x 
-      otherwise -> Left "Failed"
-    f _ _ = Left "Failed"
+    f :: GetAccountz a => Maybe [(a,Double)] -> (Text,As.Value) -> Maybe [(a,Double)]
+    f (Just x) (u, As.Number v) = case stringToTyp u of 
+      Just p -> Just $ (p,(toRealFloat v)::Double):x 
+      otherwise -> Nothing
+    f _ _ = Nothing
 
-  jsonToRec :: (Hashable a, Eq a) => Text -> Either String (Hm.HashMap a Double)
-  jsonToRec s = As.eitherDecodeStrict (encodeUtf8 s) >>= jRec
+  jsonToRec :: (Hashable a, Eq a) => Text -> Maybe (Hm.HashMap a Double)
+  jsonToRec s = As.decodeStrict (encodeUtf8 s) >>= jRec
 
 instance GetAccountz BsTyp where
   (!^>) x t = do p <- x^.balanceSheetBegin; return $ Hm.lookupDefault 0.0 t p
@@ -428,19 +428,19 @@ instance GetAccountz CfTyp where
 
 balShBegin :: Accountz -> Maybe BalanceSheet
 balShBegin x = (x ^. balanceSheetBegin) >>= 
-  \y -> return $ BalanceSheet (x ^. dateBegin) Actual y
+  return . BalanceSheet (x ^. dateBegin) Actual 
   
 balShEnd :: Accountz -> Maybe BalanceSheet
 balShEnd x = (x ^. balanceSheetEnd) >>= 
-  \y -> return $ BalanceSheet (x ^. dateEnd) Actual y
+  return . BalanceSheet (x ^. dateEnd) Actual
 
 profLoss :: Accountz -> Maybe ProfitLoss
 profLoss x = (x ^. profitLoss) >>= 
-  \y -> return $ ProfitLoss (x ^. dateBegin) (x ^. dateEnd) Actual y
+  return . ProfitLoss (x ^. dateBegin) (x ^. dateEnd) Actual
 
 cashFl :: Accountz -> Maybe CashFlow
 cashFl x = (x ^. cashFlow) >>= 
-  \y -> return $ CashFlow (x ^. dateBegin) (x ^. dateEnd) Actual y
+  return . CashFlow (x ^. dateBegin) (x ^. dateEnd) Actual
 
 mkAccountz :: Maybe BalanceSheet -> Maybe BalanceSheet -> Maybe ProfitLoss -> Maybe CashFlow -> Maybe Accountz
 mkAccountz _ _ Nothing _ = Nothing
@@ -488,8 +488,28 @@ accountzToJson x =
   cfx = case cf of Nothing -> "null"; Just cfq -> recToJSON cfq
 
 jsonToAccountz :: Text -> Maybe Accountz
-jsonToAccountz s = undefined
+jsonToAccountz s =  do
+  let 
+    parseObj :: (Eq a, Hashable a, GetAccountz a, FinType a) => As.Value -> Maybe (Maybe (Hm.HashMap a Double))
+    parseObj (As.Object x) = jRec x >>= return . Just 
+    parseObj As.Null = Just Nothing
+    parseObj _ = Nothing
 
+  rz <- As.decodeStrict (encodeUtf8 s) :: Maybe As.Object
+  (As.String dB) <- Hm.lookup "dateBegin" rz; dBeg <- getEOMonth dB
+  (As.String dE) <- Hm.lookup "dateEnd" rz; dEnd <- getEOMonth dE
+  bsB <- Hm.lookup "balanceSheetBegin" rz >>= parseObj 
+  bsE <- Hm.lookup "balanceSheetEnd" rz >>= parseObj 
+  plX <- Hm.lookup "profitLoss" rz >>= parseObj 
+  cfX <- Hm.lookup "cashFlow" rz >>= parseObj 
+
+  return $ Accountz dBeg dEnd bsB bsE plX cfX
+
+getEOMonth :: Text -> Maybe Day
+getEOMonth x = do
+  y <- parseTimeM True defaultTimeLocale "%Y-%m-%d" (T.unpack x) :: Maybe Day
+  let (u,v,_) = (toGregorian y)
+  return $ fromGregorian u v (if v == 6 || v == 9 then 30 else 31) 
 
 class FinStat a => GetStatementz a where
   toJsonz :: a -> String

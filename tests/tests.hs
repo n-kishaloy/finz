@@ -452,29 +452,40 @@ main = do
 
   let b1j = S.recToJSON $ b1 ^. rec
   let b1jMod = T.replace "34.0" "-57.58" b1j
-  let Right b1Rec = S.jsonToRec b1jMod
+  let Just b1Rec = S.jsonToRec b1jMod
 
   quickCheck $ Hm.lookup Cash b1Rec =~ Just (-57.58)
 
   let b1jMod = T.replace "Cash" "Csah" b1j
-  quickCheck $ (S.jsonToRec b1jMod :: Either String S.BsMap) == Left "Failed"
+  quickCheck $ (S.jsonToRec b1jMod :: Maybe S.BsMap) == Nothing
 
   let plj = S.recToJSON $ pl ^. rec
-  let Right plRec = S.jsonToRec $ T.replace "54.32" "-28.78" plj 
+  let Just plRec = S.jsonToRec $ T.replace "54.32" "-28.78" plj 
 
   quickCheck $ Hm.lookup Amortization plRec =~ Just (-28.78)
-  quickCheck $ (S.jsonToRec $ T.replace "Pbt" "Ptb" plj :: Either String S.PlMap) == Left "Failed"
+  quickCheck $ (S.jsonToRec $ T.replace "Pbt" "Ptb" plj :: Maybe S.PlMap) == Nothing
 
   let cfj = S.recToJSON $ cf ^. rec
-  let Right cfRec = S.jsonToRec $ T.replace "54.32" "-28.78" cfj 
+  let Just cfRec = S.jsonToRec $ T.replace "54.32" "-28.78" cfj 
   
   quickCheck $ Hm.lookup CashFlowInvestments cfRec =~ Just 25.0
-  quickCheck $ (S.jsonToRec $ T.replace "Fcff" "Fcfr" cfj :: Either String S.CfMap) == Left "Failed"
+  quickCheck $ (S.jsonToRec $ T.replace "Fcff" "Fcfr" cfj :: Maybe S.CfMap) == Nothing
 
   let pz = xz & balanceSheetBegin .~ Nothing
   -- print "pz = "; print pz
-  -- print "pz json ="; print $ S.accountzToJson pz
 
+  let jz = S.accountzToJson pz
+  -- print "pz json ="; print jz
+
+  -- let gz = T.replace "cashFlow" "csahFl" jz
+
+  -- print $ S.jsonToAccountz $ T.replace "cashFlow" "csahFl" $ jz -- Nothing
+  -- print $ S.jsonToAccountz $ T.replace "Fcfd" "FcFd" $ jz -- Nothing
+  quickCheck $ ((S.jsonToAccountz $ T.replace "Fcfd" "Fcfe" $ jz) >>= \x -> x !^> Fcfe) =~ Just 15.89
+
+  quickCheck $ ((S.jsonToAccountz $ T.replace "3.58" "-8.95" $ jz) >>= \x -> x !^> Pbitda) =~ Just (-8.95)
+  -- print $ (S.jsonToAccountz $ T.replace "3.58" "-8.9x5" $ jz) -- Nothing
+  quickCheck $ pz ^. balanceSheetBegin == Nothing
 
   print $ "Bye"
 
