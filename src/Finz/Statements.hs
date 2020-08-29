@@ -15,6 +15,7 @@ module Finz.Statements
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..), accountzToJson, jsonToAccountz
 , FinType, FinStat
+, getEOMonth
 
 ) where
 
@@ -242,13 +243,27 @@ instance Approx CfTyp where x =~ y = (x == y)
 
 -- TODO: Add your code here
 instance Approx BalanceSheet where 
-  x =~ y = undefined 
+  x =~ y = 
+    ( (x ^. datez)  ==  (y ^. datez)   &&
+      (x ^. statuz) ==  (y ^. statuz) &&
+      (x ^. rec)    =~  (y ^. rec)
+    ) 
 
 instance Approx ProfitLoss where 
-  x =~ y = undefined
+  x =~ y = 
+    ( (x ^. dateBegin)  ==  (y ^. dateBegin)  &&
+      (x ^. dateEnd)    ==  (y ^. dateEnd)    &&
+      (x ^. statuz)     ==  (y ^. statuz)     &&
+      (x ^. rec)        =~  (y ^. rec)
+    ) 
 
 instance Approx CashFlow where 
-  x =~ y = undefined
+  x =~ y = 
+    ( (x ^. dateBegin)  ==  (y ^. dateBegin)  &&
+      (x ^. dateEnd)    ==  (y ^. dateEnd)    &&
+      (x ^. statuz)     ==  (y ^. statuz)     &&
+      (x ^. rec)        =~  (y ^. rec)
+    ) 
 
 instance Approx Statementz where 
   x =~ y = undefined
@@ -300,6 +315,10 @@ instance GetRecords CashFlow CfTyp where
     x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
+instance (FinType a, Eq a, Hashable a) => Approx (Hm.HashMap a Double) where
+  x =~ y = (fz x y) && (fz y x) where
+    fz p q = foldl' (f p) True $ Hm.toList q
+    f p t z = t && ((Hm.lookupDefault 0.0 k p) =~ v) where (k,v) = z 
 
 bsTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
   where xf = enumFrom minBound::[BsTyp] 
@@ -372,6 +391,16 @@ class (FinType a, Show a) => GetAccountz a where
 
   jsonToRec :: (Hashable a, Eq a) => Text -> Maybe (Hm.HashMap a Double)
   jsonToRec s = As.decodeStrict (encodeUtf8 s) >>= jRec
+
+instance Approx Accountz where
+  x =~ y = 
+    ( (x ^. dateBegin)          ==  (y ^. dateBegin)          &&
+      (x ^. dateEnd)            ==  (y ^. dateEnd)            &&
+      (x ^. balanceSheetBegin)  =~  (y ^. balanceSheetBegin)  &&
+      (x ^. balanceSheetEnd)    =~  (y ^. balanceSheetEnd)    &&
+      (x ^. profitLoss)         =~  (y ^. profitLoss)         &&
+      (x ^. cashFlow)           =~  (y ^. cashFlow)
+    )
 
 instance GetAccountz BsTyp where
   (!^>) x t = do p <- x^.balanceSheetBegin; return $ Hm.lookupDefault 0.0 t p

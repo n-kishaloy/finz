@@ -16,7 +16,7 @@ import Finz.Statements (HasStatuz(..), HasChk (..), HasShk(..)) -- pollution
 import Finz.Statements (BsTyp (..), PlTyp (..), CfTyp (..), GetRecords (..)) 
 import Finz.Statements (GetAccountz(..), GetStatementz (..)  )
 -- pollution
-import Finz.Statements (HasRec(..), HasBalanceSheetBegin (..))
+import Finz.Statements (HasRec(..), HasBalanceSheetBegin (..), HasBalanceSheetEnd (..), HasDateBegin (..), HasDatez (..))
 import Finz.Statements (BalanceSheet (..), ProfitLoss (..), CashFlow (..))
 
 import Data.Time (Day, fromGregorian)
@@ -260,11 +260,11 @@ main = do
   quickCheck $ (xz !>> Cash) =~ Just 24.45
   quickCheck $ (xz !>> OperatingRevenue) =~ Just 58.35
 
-  -- print $ xz `addToBeginItems` [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
-  -- print $ xz !^+ (Cash, 2.34) -- Nothing
-  -- print $ xz `updateBeginItems` [(Cash, 2.34), (AccumulatedDepreciation, 5.67)] -- Nothing
-  -- print $ xz !^% (Cash, 2.34) -- Nothing
-  -- print $ S.balShBegin xz -- Nothing
+  quickCheck $ (xz `addToBeginItems` [(Cash, 2.34), (AccumulatedDepreciation, 5.67)]) =~ Nothing
+  quickCheck $ (xz !^+ (Cash, 2.34)) =~ Nothing
+  quickCheck $ (xz `updateBeginItems` [(Cash, 2.34), (AccumulatedDepreciation, 5.67)]) =~ Nothing
+  quickCheck $ (xz !^% (Cash, 2.34)) =~ Nothing
+  quickCheck $ (S.balShBegin xz) =~ Nothing
 
   let acz = xz !^~ [
             (Cash,                          88.68)
@@ -479,13 +479,88 @@ main = do
 
   -- let gz = T.replace "cashFlow" "csahFl" jz
 
-  -- print $ S.jsonToAccountz $ T.replace "cashFlow" "csahFl" $ jz -- Nothing
-  -- print $ S.jsonToAccountz $ T.replace "Fcfd" "FcFd" $ jz -- Nothing
+  quickCheck $ (S.jsonToAccountz $ T.replace "cashFlow" "csahFl" $ jz)=~ Nothing
+  quickCheck $ (S.jsonToAccountz $ T.replace "Fcfd" "FcFd" $ jz) =~ Nothing
   quickCheck $ ((S.jsonToAccountz $ T.replace "Fcfd" "Fcfe" $ jz) >>= \x -> x !^> Fcfe) =~ Just 15.89
 
   quickCheck $ ((S.jsonToAccountz $ T.replace "3.58" "-8.95" $ jz) >>= \x -> x !^> Pbitda) =~ Just (-8.95)
-  -- print $ (S.jsonToAccountz $ T.replace "3.58" "-8.9x5" $ jz) -- Nothing
+  quickCheck $ (S.jsonToAccountz $ T.replace "3.58" "-8.9x5" $ jz) =~ Nothing
   quickCheck $ pz ^. balanceSheetBegin == Nothing
+
+  print $ "Equality of records / accountz etc"
+
+  let rb = Hm.fromList [(Cash, 10.23), (CurrentAdvances, 56.25), (AccountPayables, 0.0)] :: S.BsMap
+  let tb = Hm.fromList [(Cash, 10.23), (CurrentAdvances, 56.25)] :: S.BsMap
+
+  quickCheck $ rb =~ tb
+  quickCheck $ tb =~ rb
+
+  let rb = Hm.fromList [(Cash, 10.23), (AccumulatedDepreciation, 56.25), (AccountPayables, 0.0)] :: S.BsMap
+
+  quickCheck $ rb /~ tb
+  quickCheck $ tb /~ rb
+
+  let pz = xz; tz = xz
+  quickCheck $ pz =~ xz
+
+  let Just pz = xz !^% (Cash, 34.0)
+  quickCheck $ pz =~ xz
+
+  let Just pz = xz !^% (Pbt, 34.0)
+  quickCheck $ pz /~ xz
+
+  let Just pz = xz !^% (Fcfe, 2.65)
+  quickCheck $ pz /~ xz
+
+  let Just pz = xz !^% (Fcfe, 0.0)
+  quickCheck $ pz =~ xz
+
+  let pz = xz & balanceSheetBegin .~ Nothing
+  let az = xz & balanceSheetEnd .~ Nothing
+  let bz = xz & balanceSheetBegin .~ Nothing
+  quickCheck $ pz /~ xz
+  quickCheck $ pz =~ bz
+  quickCheck $ az /~ bz
+
+  let xz = pz & dateBegin .~ (let Just x = S.getEOMonth "2018-03-15" in x)
+  quickCheck $ pz =~ xz
+  quickCheck $ xz =~ xz
+
+  let xz = pz & dateBegin .~ (let Just x = S.getEOMonth "2018-05-15" in x)
+  quickCheck $ pz /~ xz
+
+  -- print $ xz
+
+  let (bBg, Just bEd, Just pl, Just cf) = S.splitAccountz xz
+
+  quickCheck $ bBg =~ Nothing
+
+  let b1 = bEd
+  quickCheck $ b1 =~ bEd
+
+  let b1 = bEd & datez .~ (fromGregorian 2015 03 31)
+  quickCheck $ b1 /~ bEd
+
+  -- print $ b1
+  quickCheck $ b1 /~ (b1 !!% (Cash,34.0))
+  quickCheck $ b1 =~ (b1 !!% (Cash,10.0))
+
+  let p1 = pl
+  quickCheck $ p1 =~ pl
+
+  let p1 = pl !!+ (Salaries, -5.0)
+  quickCheck $ p1 /~ pl
+  let p1 = pl & dateBegin .~ (fromGregorian 2015 03 31)
+  quickCheck $ p1 /~ pl
+
+  let c1 = cf
+  quickCheck $ cf =~ c1
+
+  let c1 = cf !!+ (Fcfe, 2.3)
+  quickCheck $ c1 /~ cf
+  let c1 = cf & dateBegin .~ (fromGregorian 2015 03 31)
+  quickCheck $ c1 /~ cf
+
 
   print $ "Bye"
 
