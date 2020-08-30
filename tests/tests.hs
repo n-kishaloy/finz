@@ -529,8 +529,6 @@ main = do
   let xz = pz & dateBegin .~ (let Just x = S.getEOMonth "2018-05-15" in x)
   quickCheck $ pz /~ xz
 
-  -- print $ xz
-
   let (bBg, Just bEd, Just pl, Just cf) = S.splitAccountz xz
 
   quickCheck $ bBg =~ Nothing
@@ -560,6 +558,9 @@ main = do
   quickCheck $ c1 /~ cf
   let c1 = cf & dateBegin .~ (fromGregorian 2015 03 31)
   quickCheck $ c1 /~ cf
+
+  -- print $ xz
+
 
 
   print $ "Bye"

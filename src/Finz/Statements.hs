@@ -37,6 +37,7 @@ import Utilz.Numeric (Approx (..))
 
 import Debug.Trace (trace, traceM)
 
+import Control.Monad (forM)
 import Control.Lens
 -- import Control.Lens.TH
 
@@ -58,7 +59,7 @@ data CheckShake = CheckShake
 
 makeFields ''CheckShake
 
-class FinType a 
+class (Show a, Eq a, Hashable a, Ord a) => FinType a 
 class FinStat a
 
 data Statuz = Unset | Actual | Estimated deriving (Show, Eq)
@@ -315,7 +316,7 @@ instance GetRecords CashFlow CfTyp where
     x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
-instance (FinType a, Eq a, Hashable a) => Approx (Hm.HashMap a Double) where
+instance FinType a => Approx (Hm.HashMap a Double) where
   x =~ y = (fz x y) && (fz y x) where
     fz p q = foldl' (f p) True $ Hm.toList q
     f p t z = t && ((Hm.lookupDefault 0.0 k p) =~ v) where (k,v) = z 
@@ -336,11 +337,11 @@ data Accountz = Accountz
   , accountzBalanceSheetEnd   :: Maybe BsMap
   , accountzProfitLoss        :: Maybe PlMap
   , accountzCashFlow          :: Maybe CfMap
-  } deriving (Show, FinStat)
+  } deriving (FinStat)
 
 makeFields ''Accountz
 
-class (FinType a, Show a) => GetAccountz a where
+class FinType a => GetAccountz a where
   (!>>) :: Accountz -> a -> Maybe Double             -- Get
   (!^>) :: Accountz -> a -> Maybe Double
   (!^>) = (!>>)
@@ -391,6 +392,31 @@ class (FinType a, Show a) => GetAccountz a where
 
   jsonToRec :: (Hashable a, Eq a) => Text -> Maybe (Hm.HashMap a Double)
   jsonToRec s = As.decodeStrict (encodeUtf8 s) >>= jRec
+
+instance Show Accountz where
+  show y = 
+    let 
+      prx :: FinType a => Maybe (Hm.HashMap a Double) -> String
+      prx Nothing = "Nothing\n"
+      prx (Just x) = concat $ (\y -> show y ++ "\n") <$> Hm.toList x
+
+      -- TODO : Add pretty printing of Items
+      -- shwLn :: (FinType, Double)
+      -- shwLn (u,v) = p ++ "\n" where
+      --   ft = show u; 
+    in 
+      "************** ACCOUNTZ ***********\n\n" ++
+      "Begin Date : " ++ (show (y ^. dateBegin)) ++ "\n" ++
+      "End Date   : " ++ (show (y ^. dateEnd)) ++ "\n" ++
+      "\n******* Balance Sheet Begin *******\n" ++ 
+      (prx $ y ^. balanceSheetBegin) ++
+      "\n******** Balance Sheet End ********\n" ++ 
+      (prx $ y ^. balanceSheetEnd) ++
+      "\n*********** Profit Loss ***********\n" ++ 
+      (prx $ y ^. profitLoss) ++
+      "\n************ Cash Flow ************\n" ++ 
+      (prx $ y ^. cashFlow) ++
+      "\n*************** END ***************\n"
 
 instance Approx Accountz where
   x =~ y = 
@@ -519,7 +545,7 @@ accountzToJson x =
 jsonToAccountz :: Text -> Maybe Accountz
 jsonToAccountz s =  do
   let 
-    parseObj :: (Eq a, Hashable a, GetAccountz a, FinType a) => As.Value -> Maybe (Maybe (Hm.HashMap a Double))
+    parseObj :: (GetAccountz a, FinType a) => As.Value -> Maybe (Maybe (Hm.HashMap a Double))
     parseObj (As.Object x) = jRec x >>= return . Just 
     parseObj As.Null = Just Nothing
     parseObj _ = Nothing
