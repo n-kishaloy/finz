@@ -418,6 +418,21 @@ instance Show Accountz where
       (prx $ y ^. cashFlow) ++
       "\n*************** END ***************\n"
 
+-- DEPRECATED : This is Just proof of concept -- Not to be used
+prnx :: Accountz -> String
+prnx y = 
+  let 
+    prx :: FinType a => Maybe (Hm.HashMap a Double) -> Maybe String
+    prx Nothing = Just "Nothing\n"
+    prx (Just x)=concat <$> (forM (Hm.toList x) $ \u -> return $ (show u)++"\n")
+  in 
+    "************** ACCOUNTZ ***********\n\n" ++
+    "Begin Date : " ++ (show (y ^. dateBegin)) ++ "\n" ++
+    "End Date   : " ++ (show (y ^. dateEnd)) ++ "\n" ++ 
+    (let Just v = prx $ y ^. balanceSheetBegin in v) ++
+    (let Just v = prx $ y ^. balanceSheetEnd in v) 
+
+
 instance Approx Accountz where
   x =~ y = 
     ( (x ^. dateBegin)          ==  (y ^. dateBegin)          &&
@@ -594,3 +609,15 @@ instance GetStatementz CashFlow where
   updateEndStatement x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
     then Just $ x & cashFlow .~ (Just (s ^. rec))
     else Nothing
+
+-- type Trend = [(Day,Double)]
+
+-- data Company = Company
+--   { companyCode         ::  Text
+--   , companyMarket       ::  [(Text,Double)]
+--   , companyConsolidated ::  Bool
+--   , companyDocs         ::  [Accountz]
+--   , companySharePrices  ::  [(Day,Double)]
+--   , companyBetaU        ::  [(Day,Double)]
+
+--   }

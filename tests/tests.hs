@@ -559,8 +559,6 @@ main = do
   let c1 = cf & dateBegin .~ (fromGregorian 2015 03 31)
   quickCheck $ c1 /~ cf
 
-  -- print $ xz
-
 
 
   print $ "Bye"
