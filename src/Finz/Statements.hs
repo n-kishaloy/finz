@@ -40,7 +40,6 @@ import Data.List (foldl')
 import qualified Data.Aeson as As
 import Data.Scientific (toRealFloat)
 
--- import Utilz.Numeric (Approx (..))
 import Approx
 
 import Debug.Trace (trace, traceM)
