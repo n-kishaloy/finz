@@ -5,8 +5,9 @@
 module Main where
 
 
-import Utilz.Numeric ((=~),(/~),dot,(+^), (-^), (*^), (/^), DVec)
+import Utilz.Numeric (dot,(+^), (-^), (*^), (/^), DVec)
 import qualified Utilz.Numeric as Nu
+import Approx
 
 import qualified Data.Vector.Unboxed as U
 
@@ -18,6 +19,7 @@ import Finz.Statements (GetAccountz(..), GetStatementz (..)  )
 -- pollution
 import Finz.Statements (HasRec(..), HasBalanceSheetBegin (..), HasBalanceSheetEnd (..), HasDateBegin (..), HasDatez (..))
 import Finz.Statements (BalanceSheet (..), ProfitLoss (..), CashFlow (..))
+import Finz.Statements (eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec)
 
 import Data.Time (Day, fromGregorian)
 
@@ -492,13 +494,13 @@ main = do
   let rb = Hm.fromList [(Cash, 10.23), (CurrentAdvances, 56.25), (AccountPayables, 0.0)] :: S.BsMap
   let tb = Hm.fromList [(Cash, 10.23), (CurrentAdvances, 56.25)] :: S.BsMap
 
-  quickCheck $ rb =~ tb
-  quickCheck $ tb =~ rb
+  quickCheck $ rb `eqlRec` tb
+  quickCheck $ tb `eqlRec` rb
 
   let rb = Hm.fromList [(Cash, 10.23), (AccumulatedDepreciation, 56.25), (AccountPayables, 0.0)] :: S.BsMap
 
-  quickCheck $ rb /~ tb
-  quickCheck $ tb /~ rb
+  quickCheck $ rb `notEqlRec` tb
+  quickCheck $ tb `notEqlRec` rb
 
   let pz = xz; tz = xz
   quickCheck $ pz =~ xz
@@ -558,6 +560,10 @@ main = do
   quickCheck $ c1 /~ cf
   let c1 = cf & dateBegin .~ (fromGregorian 2015 03 31)
   quickCheck $ c1 /~ cf
+
+  -- print $ xz
+
+  
 
 
 

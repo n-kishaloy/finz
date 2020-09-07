@@ -10,11 +10,22 @@ packages:
     git: https://github.com/n-kishaloy/utilz.git
     pantry-tree:
       size: 852
-      sha256: bbf2b5e90e1d21f1486b09d50a656881e02fec034e186cea77db1b55b567844a
-    commit: 790a4cb85adfb40afb4b42e9055ed49f991d8191
+      sha256: 54e41e71735ec13a2a2a48b12c27d34c73c16d81537f0010d55b02ca7720478c
+    commit: 3416df3cdff87d4e163f1a25ce288b9e88c05f28
   original:
     git: https://github.com/n-kishaloy/utilz.git
-    commit: 790a4cb85adfb40afb4b42e9055ed49f991d8191
+    commit: 3416df3cdff87d4e163f1a25ce288b9e88c05f28
+- completed:
+    name: approx
+    version: 0.1.0.0
+    git: https://github.com/n-kishaloy/approx.git
+    pantry-tree:
+      size: 670
+      sha256: bce235d8de275b1090068f52b71e2cbdf3aea317e04710b2d8927528ff82593f
+    commit: 3ede4fc84fdd951e47d471667c7e997eec1a630c
+  original:
+    git: https://github.com/n-kishaloy/approx.git
+    commit: 3ede4fc84fdd951e47d471667c7e997eec1a630c
 snapshots:
 - completed:
     size: 491372

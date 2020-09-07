@@ -30,6 +30,7 @@ executable finz
                   ,     unordered-containers
                   ,     aeson
                   ,     scientific
+                  ,     approx
 
 library
     exposed-modules:    Finz, Finz.Statements
@@ -48,6 +49,7 @@ library
                   ,     text
                   ,     aeson
                   ,     scientific
+                  ,     approx
 
     hs-source-dirs:     src 
     default-language:   Haskell2010
@@ -72,6 +74,7 @@ test-suite tests
                     ,   text
                     ,   aeson
                     ,   scientific
+                    ,   approx
 
     default-language:   Haskell2010
 
