@@ -6,6 +6,10 @@
 module Finz.Statements
 ( BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statementz (..)
 , Accountz (..), GetAccountz (..), GetStatementz (..), GetRecords (..)
+, Company (..), HasCode (..), HasAffiliated (..), HasConsolidated (..)
+, HasDocs (..), HasSharePrices (..), HasReturn (..), HasBeta (..)
+, Param (..), HasPU (..), HasPW (..), HasPE (..), HasPD (..)
+, eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec
 , balShBegin, balShEnd, profLoss, cashFl, mkAccountz, splitAccountz
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
@@ -29,11 +33,15 @@ import Data.Text (Text)
 import Data.Text.Read (rational)
 import Data.Text.Encoding (encodeUtf8)
 
+import qualified Data.Vector as V
+import Data.Vector ((!),(//))
+
 import Data.List (foldl')
 import qualified Data.Aeson as As
 import Data.Scientific (toRealFloat)
 
-import Utilz.Numeric (Approx (..))
+-- import Utilz.Numeric (Approx (..))
+import Approx
 
 import Debug.Trace (trace, traceM)
 
@@ -247,7 +255,7 @@ instance Approx BalanceSheet where
   x =~ y = 
     ( (x ^. datez)  ==  (y ^. datez)   &&
       (x ^. statuz) ==  (y ^. statuz) &&
-      (x ^. rec)    =~  (y ^. rec)
+      (x ^. rec)  `eqlRec`  (y ^. rec)
     ) 
 
 instance Approx ProfitLoss where 
@@ -255,7 +263,7 @@ instance Approx ProfitLoss where
     ( (x ^. dateBegin)  ==  (y ^. dateBegin)  &&
       (x ^. dateEnd)    ==  (y ^. dateEnd)    &&
       (x ^. statuz)     ==  (y ^. statuz)     &&
-      (x ^. rec)        =~  (y ^. rec)
+      (x ^. rec)  `eqlRec`  (y ^. rec)
     ) 
 
 instance Approx CashFlow where 
@@ -263,7 +271,7 @@ instance Approx CashFlow where
     ( (x ^. dateBegin)  ==  (y ^. dateBegin)  &&
       (x ^. dateEnd)    ==  (y ^. dateEnd)    &&
       (x ^. statuz)     ==  (y ^. statuz)     &&
-      (x ^. rec)        =~  (y ^. rec)
+      (x ^. rec)  `eqlRec`  (y ^. rec)
     ) 
 
 instance Approx Statementz where 
@@ -316,10 +324,27 @@ instance GetRecords CashFlow CfTyp where
     x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
-instance FinType a => Approx (Hm.HashMap a Double) where
-  x =~ y = (fz x y) && (fz y x) where
+-- instance FinType a => Approx (Hm.HashMap a Double) where
+--   x =~ y = (fz x y) && (fz y x) where
+--     fz p q = foldl' (f p) True $ Hm.toList q
+--     f p t z = t && ((Hm.lookupDefault 0.0 k p) =~ v) where (k,v) = z 
+
+eqlRec :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double -> Bool 
+eqlRec x y = (fz x y) && (fz y x) where
     fz p q = foldl' (f p) True $ Hm.toList q
     f p t z = t && ((Hm.lookupDefault 0.0 k p) =~ v) where (k,v) = z 
+
+notEqlRec :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double -> Bool
+notEqlRec x y = not $ eqlRec x y
+
+maybeEqlRec :: FinType a => Maybe (Hm.HashMap a Double) -> Maybe (Hm.HashMap a Double) -> Bool
+maybeEqlRec Nothing Nothing = True
+maybeEqlRec Nothing _ = False
+maybeEqlRec _ Nothing = False
+maybeEqlRec (Just x) (Just y) = eqlRec x y
+
+notMaybeEqlRec :: FinType a => Maybe (Hm.HashMap a Double) -> Maybe (Hm.HashMap a Double) -> Bool
+notMaybeEqlRec x y = not $ maybeEqlRec x y
 
 bsTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
   where xf = enumFrom minBound::[BsTyp] 
@@ -420,12 +445,12 @@ instance Show Accountz where
 
 instance Approx Accountz where
   x =~ y = 
-    ( (x ^. dateBegin)          ==  (y ^. dateBegin)          &&
-      (x ^. dateEnd)            ==  (y ^. dateEnd)            &&
-      (x ^. balanceSheetBegin)  =~  (y ^. balanceSheetBegin)  &&
-      (x ^. balanceSheetEnd)    =~  (y ^. balanceSheetEnd)    &&
-      (x ^. profitLoss)         =~  (y ^. profitLoss)         &&
-      (x ^. cashFlow)           =~  (y ^. cashFlow)
+    ( (x ^. dateBegin)          ==            (y ^. dateBegin)          &&
+      (x ^. dateEnd)            ==            (y ^. dateEnd)            &&
+      (x ^. balanceSheetBegin)  `maybeEqlRec` (y ^. balanceSheetBegin)  &&
+      (x ^. balanceSheetEnd)    `maybeEqlRec` (y ^. balanceSheetEnd)    &&
+      (x ^. profitLoss)         `maybeEqlRec` (y ^. profitLoss)         &&
+      (x ^. cashFlow)           `maybeEqlRec` (y ^. cashFlow)
     )
 
 instance GetAccountz BsTyp where
@@ -594,3 +619,36 @@ instance GetStatementz CashFlow where
   updateEndStatement x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
     then Just $ x & cashFlow .~ (Just (s ^. rec))
     else Nothing
+
+type Trend a = V.Vector (Day, a)
+
+data Param = Param
+  { paramPU :: Double
+  , paramPW :: Double
+  , paramPE :: Double
+  , paramPD :: Double 
+  } deriving (Show)
+
+makeFields ''Param
+
+instance Approx Param where
+  x =~ y = 
+    ( (x ^. pU) =~ (y ^. pU) &&
+      (x ^. pW) =~ (y ^. pW) &&
+      (x ^. pE) =~ (y ^. pE) &&
+      (x ^. pD) =~ (y ^. pD) 
+    )
+
+data Company = Company
+  { companyCode         ::  Text
+  , companyAffiliated   ::  Maybe (Hm.HashMap Text Double)
+  , companyConsolidated ::  Bool
+  , companyDocs         ::  V.Vector Accountz
+  , companySharePrices  ::  Maybe (Trend Double)
+  , companyReturn       ::  Maybe (Trend Param)
+  , companyBeta         ::  Maybe (Trend Param)
+
+  } deriving (Show)
+
+makeFields ''Company
+

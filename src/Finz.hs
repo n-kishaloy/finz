@@ -13,8 +13,9 @@ module Finz
   , sharpe
   ) where
 
-import Utilz.Numeric ((=~),(/~),dot,(+^), (-^), (*^), (/^), DVec)
+import Utilz.Numeric (dot,(+^), (-^), (*^), (/^), DVec)
 import qualified Utilz.Numeric.Optima as Op
+import Approx
 import Control.Monad.ST
 
 import qualified Data.Vector.Unboxed as U
