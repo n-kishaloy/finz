@@ -40,7 +40,7 @@ import Data.List (foldl')
 import qualified Data.Aeson as As
 import Data.Scientific (toRealFloat)
 
-import Approx
+import Data.Approx
 
 import Debug.Trace (trace, traceM)
 
@@ -666,3 +666,22 @@ data Company = Company
 
 makeFields ''Company
 
+ckBalanceSheet :: BalanceSheet -> Bool
+ckBalanceSheet bs = undefined
+
+ckProfitLoss :: ProfitLoss -> Bool
+ckProfitLoss pl = undefined
+
+ckCashFlow :: CashFlow -> Bool
+ckCashFlow cf = undefined
+
+ckAccountz :: Accountz -> Bool
+ckAccountz ac = undefined
+-- Checks BalanceSheet >> ProfitLoss >> CashFlow >> Combination
+
+ckCompany :: Company -> Bool
+ckCompany cp = undefined
+-- Check connecting Dates & BalanceSheet then all Accountz
+
+intpAccountz :: V.Vector Accountz -> Maybe (V.Vector Accountz)
+intpAccountz va = undefined

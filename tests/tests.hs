@@ -7,7 +7,7 @@ module Main where
 
 import Utilz.Numeric (dot,(+^), (-^), (*^), (/^), DVec)
 import qualified Utilz.Numeric as Nu
-import Approx
+import Data.Approx
 
 import qualified Data.Vector.Unboxed as U
 
