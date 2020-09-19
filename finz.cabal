@@ -33,7 +33,8 @@ executable finz
                   ,     approx
 
 library
-    exposed-modules:    Finz, Finz.Statements
+    exposed-modules:    Finance.Base
+                  ,     Finance.Statements
     ghc-options:        -O -Wall -fwarn-tabs 
     build-depends:      base >= 4.7 && < 5
                   ,     containers

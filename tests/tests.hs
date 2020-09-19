@@ -11,15 +11,15 @@ import Data.Approx
 
 import qualified Data.Vector.Unboxed as U
 
-import qualified Finz as F
-import qualified Finz.Statements as S
-import Finz.Statements (HasStatuz(..), HasChk (..), HasShk(..)) -- pollution
-import Finz.Statements (BsTyp (..), PlTyp (..), CfTyp (..), GetRecords (..)) 
-import Finz.Statements (GetAccountz(..), GetStatementz (..)  )
+import qualified Finance.Base as F
+import qualified Finance.Statements as S
+import Finance.Statements (HasStatuz(..), HasChk (..), HasShk(..)) -- pollution
+import Finance.Statements (BsTyp (..), PlTyp (..), CfTyp (..), GetRecords (..)) 
+import Finance.Statements (GetAccountz(..), GetStatementz (..)  )
 -- pollution
-import Finz.Statements (HasRec(..), HasBalanceSheetBegin (..), HasBalanceSheetEnd (..), HasDateBegin (..), HasDatez (..))
-import Finz.Statements (BalanceSheet (..), ProfitLoss (..), CashFlow (..))
-import Finz.Statements (eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec)
+import Finance.Statements (HasRec(..), HasBalanceSheetBegin (..), HasBalanceSheetEnd (..), HasDateBegin (..), HasDatez (..))
+import Finance.Statements (BalanceSheet (..), ProfitLoss (..), CashFlow (..))
+import Finance.Statements (eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec)
 
 import Data.Time (Day, fromGregorian)
 

@@ -2,7 +2,7 @@
 {-# LANGUAGE Strict #-}
 
 
-module Finz 
+module Finance.Base
   ( timeMul, timeMulSub
   , rate, period
   , pv, pvm, pvc, pvAnnuity, pvAnnuityCont, fvAnnuity, pmt 

@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell, FunctionalDependencies, FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Finz.Statements
+module Finance.Statements
 ( BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statementz (..)
 , Accountz (..), GetAccountz (..), GetStatementz (..), GetRecords (..)
 , Company (..), HasCode (..), HasAffiliated (..), HasConsolidated (..)
