@@ -5,14 +5,17 @@
 module Main where
 
 
-import Utilz.Numeric (dot,(+^), (-^), (*^), (/^), DVec)
-import qualified Utilz.Numeric as Nu
+import Finance.Utilities.Numeric (dot,(+^), (-^), (*^), (/^), DVec)
+import qualified Finance.Utilities.Numeric as Nu
+import qualified Finance.Utilities.Numeric.Optima as Op
 import Data.Approx
 
+import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 
 import qualified Finance.Base as F
 import qualified Finance.Statements as S
+import qualified Finance.Bonds as B
 import Finance.Statements (HasStatuz(..), HasChk (..), HasShk(..)) -- pollution
 import Finance.Statements (BsTyp (..), PlTyp (..), CfTyp (..), GetRecords (..)) 
 import Finance.Statements (GetAccountz(..), GetStatementz (..)  )
@@ -38,62 +41,139 @@ import Test.QuickCheck
 main :: IO ()
 main = do
 
+  print ""; print $ "Newton Raphson soln"
+  quickCheck $ Op.newtRaph (\x -> 12*x^4 -5*x^3 + 5) 400 =~ Nothing
+  quickCheck $ Op.newtRaph (\x -> 12*x^4 -5*x^3) 400 =~ Just 0.416666666667
+  quickCheck $ Op.newtRP (\x -> 12*x^4 -5*x^3 + 5) 400 =~ Nothing
+  quickCheck $ Op.newtRP (\x -> 12*x^4 -5*x^3) 400 =~ Just 0.416666666667
+
+  print ""; print $ "Vector maths"
+
+  let v1 = U.fromList [1.2,3.4,4.5] :: U.Vector Double
+  let v2 = U.fromList [2.5,3.6,1.2] :: U.Vector Double
+
+  putStr "Dot product : "; quickCheck $ v1 `dot` v2 =~ 20.64
+
+  putStr "Addition : "; quickCheck $ v1 +^ v2 =~ U.fromList [3.7,7.0,5.7]
+  putStr "Addition : "; quickCheck $ v1 +^ v2 /~ U.fromList [3.75,7.0,5.7]
+
+  putStr "Subtraction : "; quickCheck $ v1 -^ v2 =~ U.fromList [-1.3,-0.2,3.3]
+  putStr "Subtraction : "; quickCheck $ v1 -^ v2 /~ U.fromList [-1.3,-0.2,3.2]
+
+  putStr "Multiply:"; quickCheck $ v1 *^ (-2.0) =~ U.fromList [-2.4,-6.8,-9.0]
+
+  putStr "Divide : "; quickCheck $ v1 /^ 0.5 =~ U.fromList [2.4,6.8,9.0]
+
+  putStr "Interp : "; quickCheck $ Nu.interp (U.fromList [2.0,3.0]) (U.fromList [10.0,15.0]) 0.25 =~   (U.fromList [4.0,6.0])
+
+  putStr "Grad : "; quickCheck $ Nu.grad (\x -> (x U.! 0) - (x U.! 1)*5.0 + (x U.! 2)**2) (U.fromList [5.0,2.0,-4.0]) =~ U.fromList [1.0,-5.0,-8.0]
+
+  putStr "NegGrad : "; quickCheck $ Nu.negGrad (\x -> (x U.! 0) - (x U.! 1)*5.0 + (x U.! 2)**2) (U.fromList [5.0,2.0,-4.0]) =~ U.fromList [-1.0,5.0,8.0]
+
+  putStr "BPhase : "; quickCheck $ (Op.bPhase (
+    \x -> (((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)) 
+      (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5])) =~ Just (0.4096,1.6384)
+
+  putStr "LineSearch : "; quickCheck $ ((Op.lineSearch (
+    \x -> (((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)) 
+    (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5])) 0.512 2.048) =~ (Just $ U.fromList [2.323530954719283,3.0882345226403585])
+
+  putStr "Line Optima : "; quickCheck $ (Op.lineOptima (
+    \x -> (((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)) 
+      (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5])) =~ (Just $ U.fromList [2.3235300091300894,3.0882349954349553])
+
+  putStr "Conj Grad : "; quickCheck $ Op.conjGradPR (
+    \x -> ((x U.! 0) - 3.0)**4.0 + ((x U.! 1) - 4.0)**2.0 + ((x U.! 2) - 2.0)**2.0 + ((x U.! 2) - 2.0)**4.0 + 10.0 ) (U.fromList [4.2,2.0,0.75]) =~ (Just $ U.fromList [2.971601975980278,3.999995704367093,1.999991592551973])
+
   putStr "timeMul "
-  quickCheck $ F.timeMul (0.06/12) (-120) =~ 0.54963273336
+  quickCheck $ F.timeMul (-120) (0.06/12) =~ 0.54963273336
 
   putStr "timeMulSub "
-  quickCheck $ F.timeMulSub 0.06 (-10) 12 =~ 0.54963273336
+  quickCheck $ F.timeMulSub (-10) 12 0.06 =~ 0.54963273336
 
   putStr "Rate "; quickCheck $ F.rate 7.35 8.52 5 =~ (-0.02911107103)
   putStr "Period"; quickCheck $ F.period 100 50 0.07 =~ 10.244768351058712
 
+  -- print $ "Year calculations"
+  -- print $ F.dayToYear (fromGregorian 2020 11 5)
+
   print "PV "
-  quickCheck $ F.pv 10_000_000 0.09 5 =~ 6_499_313.862983452
-  quickCheck $ F.pvm 12_704_891.6109538 0.06 4 12 =~ 10_000_000
-  quickCheck $ F.pvc 11_735.108709918102 0.08 2 =~ 10_000
+  quickCheck $ F.pv 10_000_000 5 0.09 =~ 6_499_313.862983452
+  quickCheck $ F.pvm 12_704_891.6109538 4 12 0.06 =~ 10_000_000
+  quickCheck $ F.pvc 11_735.108709918102 2 0.08 =~ 10_000
+  
+  quickCheck $ F.xpv ((fromGregorian 2020 8 31), 258) (fromGregorian 2019 2 25) 0.08 =~ 229.6228419865806
 
   print "FV "
-  quickCheck $ F.fv 6_499_313.862983452 0.09 5 =~ 10_000_000
-  quickCheck $ F.fvm 10_000_000 0.06 4 12 =~ 12_704_891.6109538
-  quickCheck $ F.fvc 10_000 0.08 2 =~ 11_735.108709918102
+  quickCheck $ F.fv 6_499_313.862983452 5 0.09 =~ 10_000_000
+  quickCheck $ F.fvm 10_000_000 4 12 0.06 =~ 12_704_891.6109538
+  quickCheck $ F.fvc 10_000 2 0.08 =~ 11_735.108709918102
 
   print "PV Annuity "
-  quickCheck $ F.pvAnnuity 7.33764573879378 0.08 30 12 =~ 1000
+  quickCheck $ F.pvAnnuity 7.33764573879378 30 12 0.08 =~ 1000
   quickCheck $ F.pvAnnuityCont 100 0.05 =~ 2000
-  quickCheck $ F.fvAnnuity 2000 0.24 5 3 =~ 54_304.2278549568
-  quickCheck $ F.pmt 1000 0.08 30 12 =~ 7.33764573879378
-  quickCheck $ F.fmt 54_304.2278549568 0.24 5 3 =~ 2000
+  quickCheck $ F.fvAnnuity 2000 5 3 0.24 =~ 54_304.2278549568
+  quickCheck $ F.pmt 1000 30 12 0.08 =~ 7.33764573879378
+  quickCheck $ F.fmt 54_304.2278549568 5 3 0.24 =~ 2000
 
-  quickCheck $ F.pv (F.pvAnnuity 1e+6 0.05 30 1) 0.05 9 =~ 9_909_218.99605011
+  quickCheck $ F.pv (F.pvAnnuity 1e+6 30 1 0.05) 9 0.05 =~ 9_909_218.99605011
 
   print "Effective rates"
-  quickCheck $ F.effectiveRate 0.08 2 =~ 0.0816
+  quickCheck $ F.effectiveRate 2 0.08 =~ 0.0816
   quickCheck $ F.effectiveRateCont 0.08 =~ 0.08328706767495864
 
   print "NPV calculations"
 
-  quickCheck $ F.npv 0.45 (U.fromList [0.25,6.25,3.5,4.5,1.25]) (U.fromList [-6.25,1.2,1.25,3.6,2.5]) 0.08 =~ 0.36962283798505946
+  quickCheck $ F.npv (U.fromList [0.25,6.25,3.5,4.5,1.25]) (U.fromList [-6.25,1.2,1.25,3.6,2.5]) (-0.45) 0.08 =~ 0.36962283798505946
 
   quickCheck $ F.npvT (U.fromList [0.25,6.25,3.5,4.5,1.25]) (U.fromList [-6.25,1.2,1.25,3.6,2.5]) 0.08 =~ 0.3826480347907877
 
-  quickCheck $ F.npvN 1.45 (U.fromList [1000,2000,4000,5000,6000]) 0.05 =~ 14_709.923338335733
+  quickCheck $ F.npvN (U.fromList [1000,2000,4000,5000,6000]) (-1.45) 0.05 =~ 14_709.923338335733
 
   quickCheck $ F.npvNT (U.fromList [-2,0.5,0.75,1.35]) 0.1 =~ 0.08865514650638584726040
 
   quickCheck $ F.irr (U.fromList [-2.0, 0.5, 0.75, 1.35]) =~ (Just 0.12129650314520722)
 
-  quickCheck $ F.xirr (U.fromList [0.125,0.29760274,0.49760274,0.55239726,0.812671233]) (U.fromList [-10.25,-2.5,3.5,9.5,1.25]) =~ (Just  0.31813386476788824)
+  quickCheck $ F.virr (U.fromList [0.125,0.29760274,0.49760274,0.55239726,0.812671233]) (U.fromList [-10.25,-2.5,3.5,9.5,1.25]) =~ (Just  0.31813386476788824)
+
+  let y0 = (`F.yearFrac` (fromGregorian 2018 2 12))
+  quickCheck $ y0 (fromGregorian 2026 2 12) =~ 8.0
+
+  let cf = 
+        (F.listToDTrend 
+          [ fromGregorian 2019 8 25, fromGregorian 2020 2 18
+          , fromGregorian 2020 7 25, fromGregorian 2020 8 31
+          , fromGregorian 2020 9 28
+          ] [-6000, 825, 125, 5698, 1589])
+
+  quickCheck $ (F.xnpv cf (fromGregorian 2019 2 25) 0.08) =~ 1_578.89009324049
+
+  quickCheck $ F.xirr cf =~ (Just 0.38474739096115906)
+
+  let cf = 
+        ( F.listToDTrend
+            [ (fromGregorian 1995 1 12), (fromGregorian 1998 3 28)
+            , (fromGregorian 1999 2 15), (fromGregorian 1999 8 22)
+            , (fromGregorian 2000 5 25), (fromGregorian 2003 9 16)
+            , (fromGregorian 2004 11 18)
+            ] [ -1900.00, 256.00, 825.00, 965.00, 158.00, 874.00, 2158.00 ]
+        )
+
+  quickCheck $ F.xnpv cf (fromGregorian 1994 8 5) 0.08 =~ 1105.0039750472524
+
+  quickCheck $ F.xirr cf =~ Just 0.1607722112422215
+
 
   print "TWRR"
-  quickCheck $ F.twrr (U.fromList [4,6,5.775,6.72,5.508])(U.fromList [1,-0.5,0.225,-0.6]) =~ 0.06159232319186159
+  quickCheck $ B.twrr (U.fromList [4,6,5.775,6.72,5.508])(U.fromList [1,-0.5,0.225,-0.6]) =~ 0.06159232319186159
 
-  quickCheck $ F.twrrN 1.0 (U.fromList [100, 112, 142.64]) (U.fromList [0,20]) =~ 0.21027878787878795
+  quickCheck $ B.twrrN 1.0 (U.fromList [100, 112, 142.64]) (U.fromList [0,20]) =~ 0.21027878787878795
 
   print "T-Bills"
-  quickCheck $ F.tBillR 150 98_000 100_000 =~ 0.048
-  quickCheck $ F.tBillD 0.048 150 100_000 =~ 2_000
-  quickCheck $ F.holdPerYd 98 95 5 =~ 0.020408163265306145
-  quickCheck $ F.moneyMktYd 150 98 95 5 =~ 0.04897959183673475
+  quickCheck $ B.tBillR 150 98_000 100_000 =~ 0.048
+  quickCheck $ B.tBillD 0.048 150 100_000 =~ 2_000
+  quickCheck $ B.holdPerYd 98 95 5 =~ 0.020408163265306145
+  quickCheck $ B.moneyMktYd 150 98 95 5 =~ 0.04897959183673475
 
   print $ "Sharpe"
   quickCheck $ F.sharpe 1.58 9.26 22.36 =~ 0.3434704830053667
@@ -561,11 +641,35 @@ main = do
   let c1 = cf & dateBegin .~ (fromGregorian 2015 03 31)
   quickCheck $ c1 /~ cf
 
-  -- print $ xz
+  -- print $ "xz = "; print $ xz
 
-  
+  let Just cz = xz `updateEndItems` [
+          (CurrentReceivables, -89.58)
+        , (PlantPropertyEquipment, 45.25)
+        , (AccumulatedDepreciation, 45.32)
+        , (CurrentPayables, 32.32)
+        ]  
+
+  let Just xz = cz `updateBeginItems` [
+          (OperatingRevenue, 76.34)
+        , (CostMaterial, 45.34)
+        ]
+
+  let Just cz = xz `updateEndItems` [
+          (ChgInventories, 34.34)
+        , (ChgReceivables, 23.21)
+        ]
+
+  -- print $ "cz = "; print $ cz
 
 
+  let xz = S.jsonToAccountz "{\"dateBegin\":\"2007-03-31\",\"dateEnd\":\"2008-03-31\",\"balanceSheetBegin\":null,\"balanceSheetEnd\":{\"OtherCurrentLiabilities\":67620.0,\"RawMaterials\":24220.0,\"AccountReceivables\":11310.0,\"Cash\":23970.0,\"PlantPropertyEquipment\":108310.0,\"LongTermLoans\":62810.0,\"CommonStock\":3860.0,\"LongTermInvestmentsMv\":48080.0,\"AccumulatedDepreciation\":54440.0,\"RetainedEarnings\":74540.0,\"OtherLongTermAssets\":-3910.0,\"WorkInProgress\":50650.0,\"CurrentInvestmentsMv\":49100.0,\"CurrentPayables\":48470.0},\"profitLoss\":{\"Pbitda\":26580.0,\"OperatingRevenue\":285380.0,\"OtherExpenses\":20704.0,\"Depreciation\":6520.0,\"Interest\":4260.0,\"CostMaterial\":183748.0,\"DirectExpenses\":15528.0,\"Pbt\":25760.0,\"Pat\":20290.0,\"OtherIncome\":9960.0,\"Salaries\":12940.0,\"TaxesCurrent\":5409.6},\"cashFlow\":{\"ChgInvestments\":-8150.0,\"InvestmentsCapDevp\":2090.0,\"CfInvestmentInterest\":1260.0,\"CfInvestmentDividends\":1440.0,\"DebtRepay\":-28310.0,\"OtherCfInvestments\":3940.0,\"CashFlowOperations\":61650.0,\"InterestFin\":-5670.0,\"InvestmentsLoans\":-530.0,\"OtherCfFinancing\":19700.0,\"DebtIssue\":32330.0,\"InvestmentsPpe\":-50360.0,\"Dividends\":-6750.0,\"AcqEquityAssets\":-6940.0}}" 
+
+
+  let cz = S.jsonToAccountz "{\"dateBegin\":\"2008-03-31\",\"dateEnd\":\"2009-03-31\",\"balanceSheetBegin\":{\"OtherCurrentLiabilities\":67620.0,\"RawMaterials\":24220.0,\"AccountReceivables\":11310.0,\"Cash\":23970.0,\"PlantPropertyEquipment\":108310.0,\"LongTermLoans\":62810.0,\"CommonStock\":3860.0,\"LongTermInvestmentsMv\":48080.0,\"AccumulatedDepreciation\":54440.0,\"RetainedEarnings\":74540.0,\"OtherLongTermAssets\":-3910.0,\"WorkInProgress\":50650.0,\"CurrentInvestmentsMv\":49100.0,\"CurrentPayables\":48470.0},\"balanceSheetEnd\":{\"OtherCurrentLiabilities\":70860.0,\"RawMaterials\":22300.0,\"AccountReceivables\":12060.0,\"Cash\":11420.0,\"PlantPropertyEquipment\":139050.0,\"LongTermLoans\":131660.0,\"CommonStock\":5140.0,\"LongTermInvestmentsMv\":61080.0,\"AccumulatedDepreciation\":62600.0,\"RetainedEarnings\":117160.0,\"OtherLongTermAssets\":-11430.0,\"WorkInProgress\":69470.0,\"CurrentInvestmentsMv\":129680.0,\"CurrentPayables\":46200.0},\"profitLoss\":{\"Pbitda\":11560.0,\"OperatingRevenue\":251500.0,\"OtherExpenses\":21594.6,\"Depreciation\":8750.0,\"Interest\":8110.0,\"CostMaterial\":177555.6,\"DirectExpenses\":16795.8,\"Pbt\":10140.0,\"Pat\":10010.0,\"OtherIncome\":15430.0,\"Salaries\":14396.400000000001,\"TaxesCurrent\":101.4},\"cashFlow\":{\"ChgInvestments\":15620.0,\"CfInvestmentInterest\":1370.0,\"CfInvestmentDividends\":4580.0,\"StockSales\":41100.0,\"DebtRepay\":-31790.0,\"OtherCfInvestments\":-1470.0,\"CashFlowOperations\":12840.0,\"InterestFin\":1210.0,\"DebtIssue\":76960.0,\"InvestmentsPpe\":-124430.0,\"Dividends\":-6420.0,\"AcqEquityAssets\":-1510.0}}"
+
+  print $ "xz = "; print $ xz
+  print $ "cz = "; print $ cz
 
   print $ "Bye"
 

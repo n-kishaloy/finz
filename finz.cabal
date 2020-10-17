@@ -1,14 +1,14 @@
 name:                 finz
 version:              0.1.0.0
 -- synopsis:
--- description:
+description:          Please see the README on GitHub at <https://github.com/n-kishaloy/finz#readme>
 homepage:             https://github.com/n-kishaloy/finz#readme
-license:              BSD3
+license:              MIT
 license-file:         LICENSE
-author:               Author name here
-maintainer:           example@example.com
-copyright:            2020 Author name here
-category:             Web
+author:               Kishaloy Neogi
+maintainer:           nkishaloy@yahoo.com
+copyright:            2020 Kishaloy Neogi
+category:             Finance
 build-type:           Simple
 cabal-version:        >=1.10
 extra-source-files:   README.md
@@ -24,7 +24,6 @@ executable finz
                   ,     vector
                   ,     finz
                   ,     deepseq
-                  ,     utilz
                   ,     lens
                   ,     hashable
                   ,     unordered-containers
@@ -36,6 +35,10 @@ executable finz
 library
     exposed-modules:    Finance.Base
                   ,     Finance.Statements
+                  ,     Finance.Bonds
+                  ,     Finance.Economics
+                  ,     Finance.Utilities.Numeric
+                  ,     Finance.Utilities.Numeric.Optima
     ghc-options:        -O -Wall -fwarn-tabs 
     build-depends:      base >= 4.7 && < 5
                   ,     containers
@@ -44,7 +47,6 @@ library
                   ,     QuickCheck
                   ,     vector
                   ,     deepseq
-                  ,     utilz
                   ,     lens
                   ,     hashable
                   ,     unordered-containers
@@ -68,7 +70,7 @@ test-suite tests
                     ,   QuickCheck
                     ,   time
                     ,   finz
-                    ,   utilz
+                    -- ,   utilz
                     ,   vector
                     ,   deepseq
                     ,   hashable

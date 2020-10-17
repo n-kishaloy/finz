@@ -41,8 +41,8 @@ packages:
 #
 extra-deps:
 
-- git: https://github.com/n-kishaloy/utilz.git
-  commit: 78cb2fd460d087e5f0d6074b25fe40b810340758
+# - git: https://github.com/n-kishaloy/utilz.git
+#   commit: 78cb2fd460d087e5f0d6074b25fe40b810340758
 
 # - https://github.com/n-kishaloy/approx/archive/v0.1.0.0.tar.gz
 
