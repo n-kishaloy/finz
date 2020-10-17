@@ -44,7 +44,8 @@ module Finance.Statements
 , FinType, FinStat
 , setBsMap, setPlMap, setCfMap, ckBsMap, ckPlMap, ckCfMap
 , getEOMonth
-
+, credit, debit, transact, transactSeries
+, accountzVecCheck
 ) where
 
 import GHC.Generics (Generic)
@@ -352,30 +353,24 @@ instance GetRecords BalanceSheet BsTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
   (!!~) x r = x & rec .~ (Hm.fromList r)
-  (!!+) x (k,v) = if v =~ 0.0 then x else 
-    x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
-  (!!%) x (k,v) = if v =~ 0.0 then x else 
-    x & rec .~ (Hm.insert k v (x^.rec))
+  (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
+  (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
 instance GetRecords ProfitLoss PlTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
   (!!~) x r = x & rec .~ (Hm.fromList r)
-  (!!+) x (k,v) = if v =~ 0.0 then x else 
-    x & rec .~ (Hm.insertWith (\nw ol->nw+ol) k v (x^.rec))
-  (!!%) x (k,v) = if v =~ 0.0 then x else 
-    x & rec .~ (Hm.insert k v (x^.rec))
+  (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol->nw+ol) k v (x^.rec))
+  (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
 instance GetRecords CashFlow CfTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
   (!!~) x r = x & rec .~ (Hm.fromList r)
-  (!!+) x (k,v) = if v =~ 0.0 then x else 
-    x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
-  (!!%) x (k,v) = if v =~ 0.0 then x else 
-    x & rec .~ (Hm.insert k v (x^.rec))
+  (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
+  (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
   recToList x = Hm.toList (x^.rec)
 
 -- instance FinType a => Approx (Hm.HashMap a Double) where
@@ -461,6 +456,7 @@ For ProfitLoss and CashFlow, either may be used.
 *@!^> & !>> =@ Get data 
 *@!^~ & !^~ =@ Set / Reset. Old data is lost
 *@!^+ & !>+ =@ Add / Create data. If old data exists Add, otherwise Create
+*@!^- & !>- =@ Subtract / Create -ve data. If old data exists Subtract, otherwise Create -ve valued entry.
 *@!^% & !>% =@ Update / Create data. If old data exists Update, otherwise Create
 *@addToBeginItems =@ Use !^+ using a List 
 *@addToEndItems   =@ Use !>+ using a List
@@ -485,6 +481,11 @@ class FinType a => GetAccountz a where
   (!^+) :: Accountz -> (a,Double) -> Maybe Accountz  -- Add/Create
   (!^+) = (!>+)
 
+  (!>-) :: Accountz -> (a,Double) -> Maybe Accountz  -- Subtract/Create -ve
+  (!^-) :: Accountz -> (a,Double) -> Maybe Accountz  -- Subtract/Create -ve
+  x !>- (k,v) = x !>+ (k,-v) 
+  x !^- (k,v) = x !^+ (k,-v) 
+
   (!>%) :: Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
   (!^%) :: Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
   (!^%) = (!>%)
@@ -496,6 +497,14 @@ class FinType a => GetAccountz a where
   addToBeginItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
   x `addToBeginItems` [] = return x
   x `addToBeginItems` (y:ys) = x !^+ y >>= (`addToBeginItems` ys)
+
+  subToEndItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  x `subToEndItems` [] = return x
+  x `subToEndItems` (y:ys) = x !>- y >>= (`subToEndItems` ys)
+
+  subToBeginItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  x `subToBeginItems` [] = return x
+  x `subToBeginItems` (y:ys) = x !^- y >>= (`subToBeginItems` ys)
 
   updateEndItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
   x `updateEndItems` [] = return x
@@ -582,19 +591,19 @@ instance GetAccountz BsTyp where
   (!^~) x r = x & balanceSheetBegin .~ (Just (Hm.fromList r))
   (!>~) x r = x & balanceSheetEnd .~ (Just (Hm.fromList r))
 
-  (!^+) x (k,v) = if v =~ 0.0 then (Just x) else do 
+  (!^+) x (k,v) = do 
     p <- (x ^. balanceSheetBegin)
     return $ x&balanceSheetBegin .~(Just (Hm.insertWith (\nw ol->nw+ol) k v p))
 
-  (!>+) x (k,v) = if v =~ 0.0 then (Just x) else do 
+  (!>+) x (k,v) = do 
     p <- (x ^. balanceSheetEnd)
     return $ x & balanceSheetEnd .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
 
-  (!^%) x (k,v) = if v =~ 0.0 then (Just x) else do 
+  (!^%) x (k,v) = do 
     p <- (x ^. balanceSheetBegin)
     return $ x & balanceSheetBegin .~ (Just (Hm.insert k v p))
 
-  (!>%) x (k,v) = if v =~ 0.0 then (Just x) else do 
+  (!>%) x (k,v) = do 
     p <- (x ^. balanceSheetEnd)
     return $ x & balanceSheetEnd .~ (Just (Hm.insert k v p))
 
@@ -604,11 +613,11 @@ instance GetAccountz PlTyp where
   (!>>) x t = do p <- x^.profitLoss; return $ Hm.lookupDefault 0.0 t p
   (!>~) x r = x & profitLoss .~ (Just (Hm.fromList r))
 
-  (!>+) x (k,v) = if v =~ 0.0 then (Just x) else do 
+  (!>+) x (k,v) = do 
     p <- (x ^. profitLoss)
     return $ x & profitLoss .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
 
-  (!>%) x (k,v) = if v =~ 0.0 then (Just x) else do 
+  (!>%) x (k,v) = do 
     p <- (x ^. profitLoss)
     return $ x & profitLoss .~ (Just (Hm.insert k v p))
 
@@ -618,11 +627,11 @@ instance GetAccountz CfTyp where
   (!>>) x t = do p <- x^.cashFlow; return $ Hm.lookupDefault 0.0 t p
   (!>~) x r = x & cashFlow .~ (Just (Hm.fromList r))
 
-  (!>+) x (k,v) = if v =~ 0.0 then (Just x) else do 
+  (!>+) x (k,v) = do 
     p <- (x ^. cashFlow)
     return $ x & cashFlow .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
 
-  (!>%) x (k,v) = if v =~ 0.0 then (Just x) else do 
+  (!>%) x (k,v) = do 
     p <- (x ^. cashFlow)
     return $ x & cashFlow .~ (Just (Hm.insert k v p))
 
@@ -676,6 +685,10 @@ mkAccountz bsBeg bsEnd (Just pl) cf =
 -- and Cash FLow Statement.
 splitAccountz :: Accountz -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
 splitAccountz x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
+
+-- |@cleanHashMap mp = Remove all 0 values@
+cleanHashMap :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double
+cleanHashMap mp = undefined
 
 {-|
 Convert Accountz to JSON. Typical JSON representation looks as below
@@ -866,14 +879,80 @@ sets them.
 ckCfMap :: CfMap -> Bool
 ckCfMap cf = undefined
 
+-- |@debit bs t v = debit value v from entry t in Balance Sheet bs@
 debit :: BsMap -> BsTyp -> Double -> BsMap
-debit bs a0 val = undefined
+debit bs t v = case t of 
+  Cash                          -> adder v
+  CurrentReceivables            -> adder v
+  CurrentLoans                  -> adder v
+  CurrentAdvances               -> adder v
+  OtherCurrentAssets            -> adder v
+  CurrentInvestmentsBv          -> adder v
+  CurrentInvestmentsMv          -> adder v
+  RawMaterials                  -> adder v
+  WorkInProgress                -> adder v
+  FinishedGoods                 -> adder v
+  AccountReceivables            -> adder v
+  LongTermLoans                 -> adder v
+  LongTermAdvances              -> adder v
+  LongTermInvestmentsBv         -> adder v   
+  LongTermInvestmentsMv         -> adder v
+  OtherLongTermAssets           -> adder v 
+  PlantPropertyEquipment        -> adder v
+  AccumulatedDepreciation       -> adder (-v) -- Contra Account
+  LeasingRentalAssset           -> adder v
+  CapitalWip                    -> adder v
+  OtherTangibleAssets           -> adder v  
+  IntangibleAssets              -> adder v
+  IntangibleAssetsDevelopment   -> adder v
+  AccumulatedAmortization       -> adder v   
+  CurrentPayables               -> adder (-v)
+  CurrentBorrowings             -> adder (-v)
+  CurrentNotesPayable           -> adder (-v)
+  OtherCurrentLiabilities       -> adder (-v)
+  InterestPayable               -> adder (-v)
+  CurrentProvisions             -> adder (-v)
+  CurrentTaxPayables            -> adder (-v)
+  LiabilitiesSaleAssets         -> adder (-v)
+  CurrentLeasesLiability        -> adder (-v)
+  AccountPayables               -> adder (-v)
+  LongTermBorrowings            -> adder (-v)
+  BondsPayable                  -> adder (-v)
+  DeferredTaxLiabilities        -> adder (-v)
+  LongTermLeasesLiability       -> adder (-v)
+  DeferredCompensation          -> adder (-v)
+  DeferredRevenues              -> adder (-v)
+  CustomerDeposits              -> adder (-v)
+  OtherLongTermLiabilities      -> adder (-v)
+  PensionProvision              -> adder (-v)
+  LongTermProvisions            -> adder (-v)
+  CommonStock                   -> adder (-v)
+  PreferredStock                -> adder (-v)
+  PdInCapAbovePar               -> adder (-v)
+  PdInCapTreasuryStock          -> adder (-v)
+  RevaluationReserves           -> adder (-v)
+  Reserves                      -> adder (-v)
+  RetainedEarnings              -> adder (-v)
+  AccumulatedOci                -> adder (-v)
+  MinorityInterests             -> adder (-v)
+  where adder x = Hm.insertWith (\nw ol -> nw+ol) t x bs; {-# INLINE adder #-}
 
+
+-- |@credit bs t v = credit value v from entry t in Balance Sheet bs@
 credit :: BsMap -> BsTyp -> Double -> BsMap
-credit bs a0 val = undefined
+credit bs a0 val = debit bs a0 (-val)
 
+{-|@transact bs deb crd val = Double entry of value 'val'@
+
+*deb = Type of Entry to be Debited
+*crd = Type of Entry to be Credited
+*val = Value of the Entry
+-}
 transact :: BsMap -> BsTyp -> BsTyp -> Double -> BsMap
-transact bs deb crd val = undefined
+transact bs deb crd val = credit (debit bs deb val) crd val
+
+transactSeries :: BsMap -> [(BsTyp, BsTyp, Double)] -> BsMap
+transactSeries = foldl' (\y (db,cr,v) -> transact y db cr v)
 
 -- |Check if consecutive Accountz in a Vec is consistent
 -- Basically checking accountz0.bal_shEnd == accountz1.bal_shBegin && 

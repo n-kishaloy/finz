@@ -52,47 +52,45 @@ main = do
   let v1 = U.fromList [1.2,3.4,4.5] :: U.Vector Double
   let v2 = U.fromList [2.5,3.6,1.2] :: U.Vector Double
 
-  putStr "Dot product : "; quickCheck $ v1 `dot` v2 =~ 20.64
+  quickCheck $ v1 `dot` v2 =~ 20.64
 
-  putStr "Addition : "; quickCheck $ v1 +^ v2 =~ U.fromList [3.7,7.0,5.7]
-  putStr "Addition : "; quickCheck $ v1 +^ v2 /~ U.fromList [3.75,7.0,5.7]
+  quickCheck $ v1 +^ v2 =~ U.fromList [3.7,7.0,5.7]
+  quickCheck $ v1 +^ v2 /~ U.fromList [3.75,7.0,5.7]
 
-  putStr "Subtraction : "; quickCheck $ v1 -^ v2 =~ U.fromList [-1.3,-0.2,3.3]
-  putStr "Subtraction : "; quickCheck $ v1 -^ v2 /~ U.fromList [-1.3,-0.2,3.2]
+  quickCheck $ v1 -^ v2 =~ U.fromList [-1.3,-0.2,3.3]
+  quickCheck $ v1 -^ v2 /~ U.fromList [-1.3,-0.2,3.2]
 
-  putStr "Multiply:"; quickCheck $ v1 *^ (-2.0) =~ U.fromList [-2.4,-6.8,-9.0]
+  quickCheck $ v1 *^ (-2.0) =~ U.fromList [-2.4,-6.8,-9.0]
 
-  putStr "Divide : "; quickCheck $ v1 /^ 0.5 =~ U.fromList [2.4,6.8,9.0]
+  quickCheck $ v1 /^ 0.5 =~ U.fromList [2.4,6.8,9.0]
 
-  putStr "Interp : "; quickCheck $ Nu.interp (U.fromList [2.0,3.0]) (U.fromList [10.0,15.0]) 0.25 =~   (U.fromList [4.0,6.0])
+  quickCheck $ Nu.interp (U.fromList [2.0,3.0]) (U.fromList [10.0,15.0]) 0.25 =~   (U.fromList [4.0,6.0])
 
-  putStr "Grad : "; quickCheck $ Nu.grad (\x -> (x U.! 0) - (x U.! 1)*5.0 + (x U.! 2)**2) (U.fromList [5.0,2.0,-4.0]) =~ U.fromList [1.0,-5.0,-8.0]
+  quickCheck $ Nu.grad (\x -> (x U.! 0) - (x U.! 1)*5.0 + (x U.! 2)**2) (U.fromList [5.0,2.0,-4.0]) =~ U.fromList [1.0,-5.0,-8.0]
 
-  putStr "NegGrad : "; quickCheck $ Nu.negGrad (\x -> (x U.! 0) - (x U.! 1)*5.0 + (x U.! 2)**2) (U.fromList [5.0,2.0,-4.0]) =~ U.fromList [-1.0,5.0,8.0]
+  quickCheck $ Nu.negGrad (\x -> (x U.! 0) - (x U.! 1)*5.0 + (x U.! 2)**2) (U.fromList [5.0,2.0,-4.0]) =~ U.fromList [-1.0,5.0,8.0]
 
-  putStr "BPhase : "; quickCheck $ (Op.bPhase (
+  quickCheck $ (Op.bPhase (
     \x -> (((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)) 
       (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5])) =~ Just (0.4096,1.6384)
 
-  putStr "LineSearch : "; quickCheck $ ((Op.lineSearch (
+  quickCheck $ ((Op.lineSearch (
     \x -> (((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)) 
     (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5])) 0.512 2.048) =~ (Just $ U.fromList [2.323530954719283,3.0882345226403585])
 
-  putStr "Line Optima : "; quickCheck $ (Op.lineOptima (
+  quickCheck $ (Op.lineOptima (
     \x -> (((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)) 
       (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5])) =~ (Just $ U.fromList [2.3235300091300894,3.0882349954349553])
 
-  putStr "Conj Grad : "; quickCheck $ Op.conjGradPR (
+  quickCheck $ Op.conjGradPR (
     \x -> ((x U.! 0) - 3.0)**4.0 + ((x U.! 1) - 4.0)**2.0 + ((x U.! 2) - 2.0)**2.0 + ((x U.! 2) - 2.0)**4.0 + 10.0 ) (U.fromList [4.2,2.0,0.75]) =~ (Just $ U.fromList [2.971601975980278,3.999995704367093,1.999991592551973])
 
-  putStr "timeMul "
   quickCheck $ F.timeMul (-120) (0.06/12) =~ 0.54963273336
 
-  putStr "timeMulSub "
   quickCheck $ F.timeMulSub (-10) 12 0.06 =~ 0.54963273336
 
-  putStr "Rate "; quickCheck $ F.rate 7.35 8.52 5 =~ (-0.02911107103)
-  putStr "Period"; quickCheck $ F.period 100 50 0.07 =~ 10.244768351058712
+  quickCheck $ F.rate 7.35 8.52 5 =~ (-0.02911107103)
+  quickCheck $ F.period 100 50 0.07 =~ 10.244768351058712
 
   -- print $ "Year calculations"
   -- print $ F.dayToYear (fromGregorian 2020 11 5)
@@ -190,7 +188,7 @@ main = do
   let xs = cs&(S.chk.S.statuz) .~ 42
   let ys = ch&S.statuz .~ 23
 
-  print $ (cs^.S.chk.S.statuz, xs^.S.chk.S.statuz, cs^.shk.statuz, cs^.statuz, cs^.S.checker)
+  -- print $ (cs^.S.chk.S.statuz, xs^.S.chk.S.statuz, cs^.shk.statuz, cs^.statuz, cs^.S.checker)
 
   -- print $ ("Hi", ys)
   -- print $ ("Hi", xs)
@@ -383,7 +381,7 @@ main = do
   let Just xz = (acz `addToBeginItems` [(Cash, 10.0), (CurrentReceivables, 15.0)]) >>= 
         (`addToBeginItems` [(OperatingRevenue, -3.35), (Pat, 2.58)]) >>=
         (`addToBeginItems` [(Cash, 15.0), (AccumulatedDepreciation, -2.47)]) >>=
-        (`addToBeginItems` [(CashFlowFinancing, 12.0), (CashFlowInvestments, -5.0)]) >>=
+        (`subToBeginItems` [(CashFlowFinancing, -12.0), (CashFlowInvestments, 5.0)]) >>=
         (`addToEndItems` [(Cash, 0.55), (CurrentAdvances, -2.5), (AccumulatedDepreciation, 12.7)]) >>=
         (`addToEndItems` [(CashFlowFinancing, -2.0), (Fcff, 2.73)]) >>=
         (`addToEndItems` [(OperatingRevenue, -15.0), (Pbitda, 3.58)])
@@ -401,7 +399,7 @@ main = do
 
   let Just acz = Just xz >>= (!>% (Cash, 15)) >>= (!^% (Cash, 34.0)) >>=
         (!^% (AccumulatedAmortization, 45.0)) >>=
-        (!>% (AccumulatedOci, 23.25)) >>=
+        (!>% (AccumulatedOci, 24.25)) >>=
         (!^% (AccumulatedOci, 22.56)) >>=
         (!^% (OperatingRevenue, 93.57)) >>=
         (!^% (Pbt, 23.65)) >>=
@@ -410,7 +408,7 @@ main = do
 
   let Just xz = (acz `updateBeginItems` [(Pat, 22.65), (Depreciation, 56.58)]) >>=
         (`updateEndItems` [(CurrentLoans, 78.02), (IntangibleAssets, 65.43)]) >>=
-        (`addToEndItems` [(Cash, -5.0)]) >>=
+        (`subToEndItems` [(Cash, 5.0), (AccumulatedOci, 1.0)]) >>=
         (`updateEndItems` [(NonOperatingRevenue, 67.65), (Amortization, 54.32)]) >>=
         (`updateBeginItems` [(OtherCfInvestments, 84.56), (StockSales, 22.54)])
 
@@ -550,6 +548,7 @@ main = do
   let cfj = S.recToJSON $ cf ^. rec
   let Just cfRec = S.jsonToRec $ T.replace "54.32" "-28.78" cfj 
   
+  -- print "cfj"; print $ cfj
   quickCheck $ Hm.lookup CashFlowInvestments cfRec =~ Just 25.0
   quickCheck $ (S.jsonToRec $ T.replace "Fcff" "Fcfr" cfj :: Maybe S.CfMap) == Nothing
 
@@ -668,8 +667,8 @@ main = do
 
   let cz = S.jsonToAccountz "{\"dateBegin\":\"2008-03-31\",\"dateEnd\":\"2009-03-31\",\"balanceSheetBegin\":{\"OtherCurrentLiabilities\":67620.0,\"RawMaterials\":24220.0,\"AccountReceivables\":11310.0,\"Cash\":23970.0,\"PlantPropertyEquipment\":108310.0,\"LongTermLoans\":62810.0,\"CommonStock\":3860.0,\"LongTermInvestmentsMv\":48080.0,\"AccumulatedDepreciation\":54440.0,\"RetainedEarnings\":74540.0,\"OtherLongTermAssets\":-3910.0,\"WorkInProgress\":50650.0,\"CurrentInvestmentsMv\":49100.0,\"CurrentPayables\":48470.0},\"balanceSheetEnd\":{\"OtherCurrentLiabilities\":70860.0,\"RawMaterials\":22300.0,\"AccountReceivables\":12060.0,\"Cash\":11420.0,\"PlantPropertyEquipment\":139050.0,\"LongTermLoans\":131660.0,\"CommonStock\":5140.0,\"LongTermInvestmentsMv\":61080.0,\"AccumulatedDepreciation\":62600.0,\"RetainedEarnings\":117160.0,\"OtherLongTermAssets\":-11430.0,\"WorkInProgress\":69470.0,\"CurrentInvestmentsMv\":129680.0,\"CurrentPayables\":46200.0},\"profitLoss\":{\"Pbitda\":11560.0,\"OperatingRevenue\":251500.0,\"OtherExpenses\":21594.6,\"Depreciation\":8750.0,\"Interest\":8110.0,\"CostMaterial\":177555.6,\"DirectExpenses\":16795.8,\"Pbt\":10140.0,\"Pat\":10010.0,\"OtherIncome\":15430.0,\"Salaries\":14396.400000000001,\"TaxesCurrent\":101.4},\"cashFlow\":{\"ChgInvestments\":15620.0,\"CfInvestmentInterest\":1370.0,\"CfInvestmentDividends\":4580.0,\"StockSales\":41100.0,\"DebtRepay\":-31790.0,\"OtherCfInvestments\":-1470.0,\"CashFlowOperations\":12840.0,\"InterestFin\":1210.0,\"DebtIssue\":76960.0,\"InvestmentsPpe\":-124430.0,\"Dividends\":-6420.0,\"AcqEquityAssets\":-1510.0}}"
 
-  print $ "xz = "; print $ xz
-  print $ "cz = "; print $ cz
+  -- print $ "xz = "; print $ xz
+  -- print $ "cz = "; print $ cz
 
   print $ "Bye"
 
