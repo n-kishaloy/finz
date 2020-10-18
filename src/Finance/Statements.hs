@@ -389,7 +389,7 @@ default in Financial Statements.
 eqlRec :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double -> Bool 
 eqlRec x y = (fz x y) && (fz y x) where
     fz p q = foldl' (f p) True $ Hm.toList q
-    f p t z = t && ((Hm.lookupDefault 0.0 k p) =~ v) where (k,v) = z 
+    f p t (k,v) = t && ((Hm.lookupDefault 0.0 k p) =~ v)  
 
 {-|@notEqlRec x y = not $ eqlRec x y@-}
 notEqlRec :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double -> Bool
