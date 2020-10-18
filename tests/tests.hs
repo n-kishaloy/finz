@@ -662,8 +662,9 @@ main = do
         , (Fcfe, 0.0)
         ]
 
-  print $ "cz = "; print $ S.cleanAccountz cz
+  print $ "cz = "; print $ cz
 
+  print $ "cz = "; print $ S.cleanAccountz cz
 
 
 
