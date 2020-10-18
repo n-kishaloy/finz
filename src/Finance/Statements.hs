@@ -32,7 +32,7 @@ module Finance.Statements
 , Company (..), HasCode (..), HasAffiliated (..), HasConsolidated (..)
 , HasDocs (..), HasSharePrices (..), HasRate (..), HasBeta (..)
 , Param (..), HasPU (..), HasPW (..), HasPE (..), HasPD (..)
-, eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec
+, eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec, cleanRec, cleanAccountz
 , balShBegin, balShEnd, profLoss, cashFl, mkAccountz, splitAccountz
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
@@ -686,9 +686,20 @@ mkAccountz bsBeg bsEnd (Just pl) cf =
 splitAccountz :: Accountz -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
 splitAccountz x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
 
--- |@cleanHashMap mp = Remove all 0 values@
-cleanHashMap :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double
-cleanHashMap mp = undefined
+-- |@cleanRec mp = Remove all 0 value items@
+cleanRec :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double
+cleanRec =  Hm.fromList . filter (\(_,v) -> v /~ 0.0) . Hm.toList
+
+-- |@cleanAccountz ac = Clean all items in Accountz from the HashMaps@
+cleanAccountz :: Accountz -> Accountz
+cleanAccountz ac = Accountz (ac ^. dateBegin) (ac ^. dateEnd) bB bE pl cf where
+  bB  = cleaner $ ac ^. balanceSheetBegin 
+  bE  = cleaner $ ac ^. balanceSheetEnd 
+  pl  = cleaner $ ac ^. profitLoss 
+  cf  = cleaner $ ac ^. cashFlow 
+
+  cleaner Nothing = Nothing
+  cleaner x = cleanRec <$> x
 
 {-|
 Convert Accountz to JSON. Typical JSON representation looks as below

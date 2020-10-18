@@ -647,19 +647,24 @@ main = do
         , (PlantPropertyEquipment, 45.25)
         , (AccumulatedDepreciation, 45.32)
         , (CurrentPayables, 32.32)
+        , (FinishedGoods, 0.0)
         ]  
 
   let Just xz = cz `updateBeginItems` [
           (OperatingRevenue, 76.34)
         , (CostMaterial, 45.34)
+        , (TaxesCurrent, 0.0)
         ]
 
   let Just cz = xz `updateEndItems` [
           (ChgInventories, 34.34)
         , (ChgReceivables, 23.21)
+        , (Fcfe, 0.0)
         ]
 
-  -- print $ "cz = "; print $ cz
+  print $ "cz = "; print $ S.cleanAccountz cz
+
+
 
 
   let xz = S.jsonToAccountz "{\"dateBegin\":\"2007-03-31\",\"dateEnd\":\"2008-03-31\",\"balanceSheetBegin\":null,\"balanceSheetEnd\":{\"OtherCurrentLiabilities\":67620.0,\"RawMaterials\":24220.0,\"AccountReceivables\":11310.0,\"Cash\":23970.0,\"PlantPropertyEquipment\":108310.0,\"LongTermLoans\":62810.0,\"CommonStock\":3860.0,\"LongTermInvestmentsMv\":48080.0,\"AccumulatedDepreciation\":54440.0,\"RetainedEarnings\":74540.0,\"OtherLongTermAssets\":-3910.0,\"WorkInProgress\":50650.0,\"CurrentInvestmentsMv\":49100.0,\"CurrentPayables\":48470.0},\"profitLoss\":{\"Pbitda\":26580.0,\"OperatingRevenue\":285380.0,\"OtherExpenses\":20704.0,\"Depreciation\":6520.0,\"Interest\":4260.0,\"CostMaterial\":183748.0,\"DirectExpenses\":15528.0,\"Pbt\":25760.0,\"Pat\":20290.0,\"OtherIncome\":9960.0,\"Salaries\":12940.0,\"TaxesCurrent\":5409.6},\"cashFlow\":{\"ChgInvestments\":-8150.0,\"InvestmentsCapDevp\":2090.0,\"CfInvestmentInterest\":1260.0,\"CfInvestmentDividends\":1440.0,\"DebtRepay\":-28310.0,\"OtherCfInvestments\":3940.0,\"CashFlowOperations\":61650.0,\"InterestFin\":-5670.0,\"InvestmentsLoans\":-530.0,\"OtherCfFinancing\":19700.0,\"DebtIssue\":32330.0,\"InvestmentsPpe\":-50360.0,\"Dividends\":-6750.0,\"AcqEquityAssets\":-6940.0}}" 
