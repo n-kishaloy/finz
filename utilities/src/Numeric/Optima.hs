@@ -3,7 +3,7 @@
 {-# LANGUAGE Strict #-}
 
 
-module Finance.Utilities.Numeric.Optima 
+module Numeric.Optima 
 ( newtRaph
 , newtRP
 , bPhase
@@ -12,7 +12,7 @@ module Finance.Utilities.Numeric.Optima
 , conjGradPR
 ) where 
 
-import Finance.Utilities.Numeric (dot,(+^), (-^), (*^), (/^), DVec)
+import Numeric.Utils (dot,(+^), (-^), (*^), (/^), DVec)
 import Data.Approx
 
 import qualified Data.Vector.Unboxed as U
@@ -22,7 +22,7 @@ import Data.Vector.Unboxed  ((!))
 import Control.Monad.ST
 import Control.Monad (join, liftM)
 
-import qualified Finance.Utilities.Numeric as Nu
+import qualified Numeric.Utils as Nu
 
 import Debug.Trace (trace)
 debug = flip trace

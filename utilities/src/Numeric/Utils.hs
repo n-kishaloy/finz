@@ -4,7 +4,7 @@
 {-# LANGUAGE Strict #-}
 
 
-module Finance.Utilities.Numeric
+module Numeric.Utils
 ( dot
 , (+^), (-^), (*^), (/^), interp
 , grad
@@ -12,17 +12,12 @@ module Finance.Utilities.Numeric
 , DVec
 ) where
 
-import Data.List (foldl')
 import Data.Vector.Unboxed ((!),(//))
 import qualified Data.Vector.Unboxed as U
-import qualified Data.Vector.Unboxed.Mutable as M
-import qualified Data.Vector as V
 import Control.Monad.ST
 -- import Data.Time (Day)
 -- import qualified Data.HashMap.Strict as Hm
 -- import Data.Hashable
-import Data.List (foldl')
-import Data.Text (Text)
 
 import Debug.Trace (trace)
 debug = flip trace

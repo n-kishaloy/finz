@@ -822,7 +822,6 @@ makeFields ''Company
 {-|@calcElem x h = Calculate and set the derived items in statements@
 
 The calulated elements includes Current Assets, Assets, Equity, 
-
 -}
 calcElem :: FinType a=>[(a,[a],[a])]->Hm.HashMap a Double -> Hm.HashMap a Double
 calcElem [] h = h
@@ -947,11 +946,11 @@ debit bs t v = case t of
   AccumulatedOci                -> adder (-v)
   MinorityInterests             -> adder (-v)
   where adder x = Hm.insertWith (\nw ol -> nw+ol) t x bs; {-# INLINE adder #-}
-
+{-# INLINE debit #-}
 
 -- |@credit bs t v = credit value v from entry t in Balance Sheet bs@
 credit :: BsMap -> BsTyp -> Double -> BsMap
-credit bs a0 val = debit bs a0 (-val)
+credit bs a0 val = debit bs a0 (-val); {-# INLINE credit #-}
 
 {-|@transact bs deb crd val = Double entry of value 'val'@
 
@@ -962,14 +961,24 @@ credit bs a0 val = debit bs a0 (-val)
 transact :: BsMap -> BsTyp -> BsTyp -> Double -> BsMap
 transact bs deb crd val = credit (debit bs deb val) crd val
 
+{-|@transactSeries balanceSheetMap [(debit, credit, value)] = Effect series of transaction on Balance Sheet Map@
+
+*balanceSheetMap  =   HashMap of BalanceSheet
+*debit            =   Item to be debited from
+*credit           =   Item to be credited from
+*value            =   Value of the transaction
+
+*[(debit, credit, value)\] = List of Transactions to be affected
+-}
 transactSeries :: BsMap -> [(BsTyp, BsTyp, Double)] -> BsMap
 transactSeries = foldl' (\y (db,cr,v) -> transact y db cr v)
 
 -- |Check if consecutive Accountz in a Vec is consistent
 -- Basically checking accountz0.bal_shEnd == accountz1.bal_shBegin && 
--- accountz0.dateEnd == accountz1.dateBegin
+-- accountz0.dateEnd == accountz1.dateBegin && accountz0.dateEnd /~ None
+-- && accountz1.dateBegin /~ None
 accountzVecCheck :: V.Vector Accountz -> Bool
-accountzVecCheck va = undefined
+accountzVecCheck va = undefined 
 
 -- |Check Accountz for consistency
 ckAccountz :: Accountz -> Bool

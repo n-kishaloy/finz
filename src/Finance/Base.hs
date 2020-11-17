@@ -16,7 +16,7 @@ You may see the github repository at <https://github.com/n-kishaloy/finz>
 
 
 {-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE Strict #-}
+{-# LANGUAGE Strict #-} 
 
 
 module Finance.Base
@@ -29,8 +29,8 @@ module Finance.Base
   , DayData, TrendData, DTrend, listToDTrend, xnpv, xirr, xpv
   ) where
 
-import Finance.Utilities.Numeric (dot,(+^), (-^), (*^), (/^), DVec)
-import qualified Finance.Utilities.Numeric.Optima as Op
+import Numeric.Utils (dot,(+^), (-^), (*^), (/^), DVec)
+import qualified Numeric.Optima as Op
 import Data.Approx
 import Control.Monad.ST
 import Data.Time (Day, fromGregorian, toGregorian, diffDays)

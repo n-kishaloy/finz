@@ -7,10 +7,10 @@ module Finance.Bonds
 
   ) where
 
-import Finance.Utilities.Numeric ( DVec)
+import Numeric.Utils ( DVec)
 import qualified Data.Vector.Unboxed as U
 import Data.Vector.Unboxed ((!),(//))
-import Control.Monad.ST
+import Control.Monad.ST ( runST )
 
 twrr :: DVec -> DVec -> Double
 twrr bv bi = (\x-> x**(1/(fromIntegral n)) - 1) $ U.product $ runST $ do 

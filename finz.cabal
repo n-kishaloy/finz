@@ -31,19 +31,19 @@ executable finz
                   ,     scientific
                   ,     statistics
                   ,     approx
+                  ,     utilities
 
 library
     exposed-modules:    Finance.Base
                   ,     Finance.Statements
                   ,     Finance.Bonds
                   ,     Finance.Economics
-                  ,     Finance.Utilities.Numeric
-                  ,     Finance.Utilities.Numeric.Optima
+                  -- ,     Finance.Utilities.Numeric
+                  -- ,     Finance.Utilities.Numeric.Optima
     ghc-options:        -O -Wall -fwarn-tabs 
     build-depends:      base >= 4.7 && < 5
                   ,     containers
                   ,     time
-                  ,     hspec
                   ,     QuickCheck
                   ,     vector
                   ,     deepseq
@@ -55,6 +55,7 @@ library
                   ,     scientific
                   ,     statistics
                   ,     approx
+                  ,     utilities
 
     hs-source-dirs:     src 
     default-language:   Haskell2010
@@ -81,6 +82,7 @@ test-suite tests
                     ,   scientific
                     ,   statistics
                     ,   approx
+                    ,   utilities
 
     default-language:   Haskell2010
 
