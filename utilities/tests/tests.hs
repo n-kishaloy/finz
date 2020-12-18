@@ -7,7 +7,6 @@ import qualified Numeric.Utils as Nu
 import qualified Numeric.Optima as Op
 import Data.Approx
 
-import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 
 import Test.QuickCheck 
@@ -25,8 +24,8 @@ main = do
 
   print ""; print $ "Vector maths"
 
-  let v1 = U.fromList [1.2,3.4,4.5] :: U.Vector Double
-  let v2 = U.fromList [2.5,3.6,1.2] :: U.Vector Double
+  let v1 = U.fromList [1.2,3.4,4.5] :: DVec
+  let v2 = U.fromList [2.5,3.6,1.2] :: DVec
 
   quickCheck $ v1 `dot` v2 =~ 20.64
 
@@ -40,26 +39,26 @@ main = do
 
   quickCheck $ v1 /^ 0.5 =~ U.fromList [2.4,6.8,9.0]
 
-  quickCheck $ Nu.interp (U.fromList [2.0,3.0]) (U.fromList [10.0,15.0]) 0.25 =~   (U.fromList [4.0,6.0])
+  quickCheck $ Nu.interp (U.fromList [2.0,3.0]) (U.fromList [10.0,15.0]) 0.25 =~   U.fromList [4.0,6.0]
 
   quickCheck $ Nu.grad (\x -> (x U.! 0) - (x U.! 1)*5.0 + (x U.! 2)**2) (U.fromList [5.0,2.0,-4.0]) =~ U.fromList [1.0,-5.0,-8.0]
 
   quickCheck $ Nu.negGrad (\x -> (x U.! 0) - (x U.! 1)*5.0 + (x U.! 2)**2) (U.fromList [5.0,2.0,-4.0]) =~ U.fromList [-1.0,5.0,8.0]
 
-  quickCheck $ (Op.bPhase (
-    \x -> (((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)) 
-      (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5])) =~ Just (0.4096,1.6384)
+  quickCheck $ Op.bPhase (
+    \x -> ((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)
+      (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5]) =~ Just (0.4096,1.6384)
 
-  quickCheck $ ((Op.lineSearch (
-    \x -> (((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)) 
-    (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5])) 0.512 2.048) =~ (Just $ U.fromList [2.323530954719283,3.0882345226403585])
+  quickCheck $ Op.lineSearch (
+    \x -> ((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)
+    (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5]) 0.512 2.048 =~ Just ( U.fromList [2.323530954719283,3.0882345226403585])
 
-  quickCheck $ (Op.lineOptima (
-    \x -> (((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)) 
-      (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5])) =~ (Just $ U.fromList [2.3235300091300894,3.0882349954349553])
+  quickCheck $ Op.lineOptima (
+    \x -> ((x U.! 0)-2.5)**2.0/25.0 + ((x U.! 1)-4.5)**2.0/100.0)
+      (U.fromList [3.5, 2.5]) (U.fromList [-1.0, 0.5]) =~ Just ( U.fromList [2.3235300091300894,3.0882349954349553])
 
   quickCheck $ Op.conjGradPR (
-    \x -> ((x U.! 0) - 3.0)**4.0 + ((x U.! 1) - 4.0)**2.0 + ((x U.! 2) - 2.0)**2.0 + ((x U.! 2) - 2.0)**4.0 + 10.0 ) (U.fromList [4.2,2.0,0.75]) =~ (Just $ U.fromList [2.971601975980278,3.999995704367093,1.999991592551973])
+    \x -> ((x U.! 0) - 3.0)**4.0 + ((x U.! 1) - 4.0)**2.0 + ((x U.! 2) - 2.0)**2.0 + ((x U.! 2) - 2.0)**4.0 + 10.0 ) (U.fromList [4.2,2.0,0.75]) =~ Just (U.fromList [2.9959574875,4,2])
 
   
 

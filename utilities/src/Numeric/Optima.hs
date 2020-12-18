@@ -1,4 +1,3 @@
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE Strict #-}
 
@@ -12,15 +11,11 @@ module Numeric.Optima
 , conjGradPR
 ) where 
 
-import Numeric.Utils (dot,(+^), (-^), (*^), (/^), DVec)
+import Numeric.Utils (dot,(+^), (-^), (*^), DVec)
 import Data.Approx
+import Data.Functor ((<&>))
 
 import qualified Data.Vector.Unboxed as U
-import qualified Data.Vector.Unboxed.Mutable as M
-import Data.Vector.Unboxed  ((!))
-
-import Control.Monad.ST
-import Control.Monad (join, liftM)
 
 import qualified Numeric.Utils as Nu
 
@@ -28,7 +23,7 @@ import Debug.Trace (trace)
 debug = flip trace
 
 newtRaph :: (Double->Double) -> Double -> Maybe Double
-newtRaph f x = Just (0,x) >>= findSoln >>= return . snd where 
+newtRaph f x = Just (0,x) >>= findSoln <&> snd where 
   findSoln :: (Int, Double) -> Maybe (Int, Double)
   findSoln (100, _) = Nothing
   findSoln (n,x0) 
@@ -36,7 +31,7 @@ newtRaph f x = Just (0,x) >>= findSoln >>= return . snd where
     |e1    =~ 0.0  = Just (n,x0-e1) 
     |otherwise     = Just (n+1,x0-e1) >>= findSoln 
     where 
-      e1=f0/f0'; f0 = f x0; f0'= ((f (x0 + 1e-5)) - f0)/1e-5 
+      e1=f0/f0'; f0 = f x0; f0'= (f (x0 + 1e-5) - f0)/1e-5 
 
 newtRP :: (Double->Double) -> Double -> Maybe Double
 newtRP f x = do
@@ -48,7 +43,7 @@ newtRP f x = do
       |e1    =~ 0.0  = Just (n,x0-e1) 
       |otherwise     = Just (n+1,x0-e1) >>= findSoln 
       where 
-        e1=f0/f0'; f0 = f x0; f0'= ((f (x0 + 1e-5)) - f0)/1e-5 
+        e1=f0/f0'; f0 = f x0; f0'= (f (x0 + 1e-5) - f0)/1e-5 
   (_,xf) <- findSoln (0,x) -- ==let v=(0,x)==v <- return (0,x) Sugar>>Desugar
   return xf
 
@@ -64,12 +59,12 @@ conjGradPR f v0 = findSoln 0 d0 d0 v0 where
 
   findSoln 150 _ _ _   = Nothing
   findSoln m d0 p0 x0
-    |p_sq < 1e-8   = Just x0
+    |p_sq < 1e-10   = Just x0
     |otherwise     = do
       x1 <- lineOptima f x0 d0
       let 
         p1 = Nu.negGrad f x1
-        d1 = if (m `rem` n == n-1) then p1
+        d1 = if m `rem` n == n-1 then p1
         else p1 +^ d0 *^ (((p1 -^ p0) `dot` p1)/p_sq)
       findSoln (m+1) d1 p1 x1
     where p_sq = p0 `dot` p0
@@ -80,8 +75,8 @@ lineOptima f av bv = do (la, lb) <- bPhase f av bv; lineSearch f av bv la lb
 lineSearch :: (DVec -> Double) -> DVec -> DVec -> Double -> Double -> Maybe DVec
 lineSearch f av bv la lb = findSoln 0 la x1 x2 lb fa f1 f2 fb 
   where
-  fx = fAbx f av bv; gr = 2.0/((sqrt 5.0) + 1); gs = 1.0 - gr
-  nx = ceiling $ log (abs (1e-5/(lb-la)))/log gr
+  fx = fAbx f av bv; gr = 2.0/(sqrt 5.0 + 1); gs = 1.0 - gr
+  nx = ceiling $ logBase gr (abs (1e-5/(lb-la)))
   x1=gr*la+gs*lb; x2=gs*la+gr*lb; fa=fx la; f1=fx x1; f2=fx x2; fb=fx lb
 
   findSoln n xa x1 x2 xb fa f1 f2 fb 
@@ -92,7 +87,7 @@ lineSearch f av bv la lb = findSoln 0 la x1 x2 lb fa f1 f2 fb
                  in findSoln (n+1) xa xd x1 x2 fa (fx xd) f1 f2 
 
 bPhase :: (DVec -> Double) -> DVec -> DVec -> Maybe (Double, Double)
-bPhase f av zv = if fm > (fx 0.0) then Nothing else findSoln 0 0.0 m b d fm fb
+bPhase f av zv = if fm > fx 0.0 then Nothing else findSoln 0 0.0 m b d fm fb
   where   
   fx = fAbx f av zv; d = 1e-4; m = d; b = m + d; fm = fx m; fb = fx b
 

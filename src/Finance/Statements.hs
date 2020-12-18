@@ -42,14 +42,14 @@ module Finance.Statements
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..), accountzToJson, jsonToAccountz
 , FinType, FinStat
-, setBsMap, setPlMap, setCfMap, ckBsMap, ckPlMap, ckCfMap
+, setBsMap, setPlMap, setCfMap, checkBsMap, checkPlMap, checkCfMap
 , getEOMonth
 , credit, debit, transact, transactSeries
 , accountzVecCheck
 ) where
 
 import GHC.Generics (Generic)
-import Data.Hashable
+import Data.Hashable ( Hashable )
 import Data.Time (Day, fromGregorian, parseTimeM, defaultTimeLocale, toGregorian)
 import qualified Data.HashMap.Strict as Hm
 
@@ -57,7 +57,6 @@ import qualified Finance.Base as F
 
 import qualified Data.Text as T
 import Data.Text (Text)
-import Data.Text.Read (rational)
 import Data.Text.Encoding (encodeUtf8)
 
 import qualified Data.Vector as V
@@ -78,10 +77,10 @@ import Control.Lens
 debug = flip trace
 
 
-data Checker = Checker { checkerStatuz :: Int } deriving (Show)
+newtype Checker = Checker { checkerStatuz :: Int } deriving (Show)
 makeFields ''Checker
 
-data Shaker = Shaker { shakerStatuz :: Int } deriving (Show)
+newtype Shaker = Shaker { shakerStatuz :: Int } deriving (Show)
 makeFields ''Shaker
 
 data CheckShake = CheckShake 
@@ -287,34 +286,32 @@ data Statementz = Statementz
 
 makeFields ''Statementz
 
-instance Approx BsTyp where x =~ y = (x == y)
-instance Approx PlTyp where x =~ y = (x == y)
-instance Approx CfTyp where x =~ y = (x == y)
+instance Approx BsTyp where x =~ y = x == y
+instance Approx PlTyp where x =~ y = x == y
+instance Approx CfTyp where x =~ y = x == y
 
 -- TODO: Add your code here
 instance Approx BalanceSheet where 
   x =~ y = 
-    ( (x ^. datez)  ==  (y ^. datez)   &&
-      (x ^. statuz) ==  (y ^. statuz) &&
-      (x ^. rec)  `eqlRec`  (y ^. rec)
-    ) 
+    (x ^. datez)  ==  (y ^. datez)   &&
+    (x ^. statuz) ==  (y ^. statuz) &&
+    (x ^. rec)  `eqlRec`  (y ^. rec)
+
 
 instance Approx ProfitLoss where 
   x =~ y = 
-    ( (x ^. dateBegin)  ==  (y ^. dateBegin)  &&
-      (x ^. dateEnd)    ==  (y ^. dateEnd)    &&
-      (x ^. statuz)     ==  (y ^. statuz)     &&
-      (x ^. rec)  `eqlRec`  (y ^. rec)
-    ) 
-
+    (x ^. dateBegin)  ==  (y ^. dateBegin)  &&
+    (x ^. dateEnd)    ==  (y ^. dateEnd)    &&
+    (x ^. statuz)     ==  (y ^. statuz)     &&
+    (x ^. rec)  `eqlRec`  (y ^. rec)
+     
 instance Approx CashFlow where 
   x =~ y = 
-    ( (x ^. dateBegin)  ==  (y ^. dateBegin)  &&
-      (x ^. dateEnd)    ==  (y ^. dateEnd)    &&
-      (x ^. statuz)     ==  (y ^. statuz)     &&
-      (x ^. rec)  `eqlRec`  (y ^. rec)
-    ) 
-
+    (x ^. dateBegin)  ==  (y ^. dateBegin)  &&
+    (x ^. dateEnd)    ==  (y ^. dateEnd)    &&
+    (x ^. statuz)     ==  (y ^. statuz)     &&
+    (x ^. rec)  `eqlRec`  (y ^. rec)
+     
 instance Approx Statementz where 
   x =~ y = undefined
 
@@ -352,25 +349,25 @@ class (FinStat a, FinType b) => GetRecords a b where
 instance GetRecords BalanceSheet BsTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
-  (!!~) x r = x & rec .~ (Hm.fromList r)
-  (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
-  (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
+  (!!~) x r = x & rec .~ Hm.fromList r
+  (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k v (x^.rec)
+  (!!%) x (k,v) = x & rec .~ Hm.insert k v (x^.rec)
   recToList x = Hm.toList (x^.rec)
 
 instance GetRecords ProfitLoss PlTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
-  (!!~) x r = x & rec .~ (Hm.fromList r)
-  (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol->nw+ol) k v (x^.rec))
-  (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
+  (!!~) x r = x & rec .~ Hm.fromList r
+  (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k v (x^.rec)
+  (!!%) x (k,v) = x & rec .~ Hm.insert k v (x^.rec)
   recToList x = Hm.toList (x^.rec)
 
 instance GetRecords CashFlow CfTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
-  (!!~) x r = x & rec .~ (Hm.fromList r)
-  (!!+) x (k,v) = x & rec .~ (Hm.insertWith (\nw ol -> nw+ol) k v (x^.rec))
-  (!!%) x (k,v) = x & rec .~ (Hm.insert k v (x^.rec))
+  (!!~) x r = x & rec .~ Hm.fromList r
+  (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k v (x^.rec)
+  (!!%) x (k,v) = x & rec .~ Hm.insert k v (x^.rec)
   recToList x = Hm.toList (x^.rec)
 
 -- instance FinType a => Approx (Hm.HashMap a Double) where
@@ -387,9 +384,9 @@ The equality uses a default of '0' for keys not available as it is the
 default in Financial Statements.
 -}
 eqlRec :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double -> Bool 
-eqlRec x y = (fz x y) && (fz y x) where
+eqlRec x y = fz x y && fz y x where
     fz p q = foldl' (f p) True $ Hm.toList q
-    f p t (k,v) = t && ((Hm.lookupDefault 0.0 k p) =~ v)  
+    f p t (k,v) = t && (Hm.lookupDefault 0.0 k p =~ v)  
 
 {-|@notEqlRec x y = not $ eqlRec x y@-}
 notEqlRec :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double -> Bool
@@ -413,15 +410,15 @@ notMaybeEqlRec :: FinType a => Maybe (Hm.HashMap a Double) -> Maybe (Hm.HashMap 
 notMaybeEqlRec x y = not $ maybeEqlRec x y
 
 bsTypMap :: Hm.HashMap Text BsTyp
-bsTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
+bsTypMap = Hm.fromList $ zip (T.pack . show <$> xf) xf 
   where xf = enumFrom minBound::[BsTyp] 
 
 plTypMap :: Hm.HashMap Text PlTyp
-plTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
+plTypMap = Hm.fromList $ zip (T.pack . show <$> xf) xf 
   where xf = enumFrom minBound::[PlTyp] 
 
 cfTypMap :: Hm.HashMap Text CfTyp
-cfTypMap = Hm.fromList $ zip ((T.pack . show) <$> xf) xf 
+cfTypMap = Hm.fromList $ zip (T.pack . show <$> xf) xf 
   where xf = enumFrom minBound::[CfTyp] 
 
 
@@ -522,12 +519,12 @@ class FinType a => GetAccountz a where
     f v (x,y) = if y =~ 0.0 then v else concat [v,",\"",show x,"\":", show y] 
 
   jRec :: (Hashable a, Eq a) => As.Object -> Maybe (Hm.HashMap a Double)
-  jRec x = (foldl' f (Just []) (Hm.toList x)) >>= return . Hm.fromList
+  jRec x = Hm.fromList <$> foldl' f (Just []) (Hm.toList x) 
     where
     f :: GetAccountz a => Maybe [(a,Double)] -> (Text,As.Value) -> Maybe [(a,Double)]
     f (Just x) (u, As.Number v) = case stringToTyp u of 
-      Just p -> Just $ (p,(toRealFloat v)::Double):x 
-      otherwise -> Nothing
+      Just p -> Just $ (p,toRealFloat v::Double):x 
+      _ -> Nothing
     f _ _ = Nothing
 
   jsonToRec :: (Hashable a, Eq a) => Text -> Maybe (Hm.HashMap a Double)
@@ -546,16 +543,16 @@ instance Show Accountz where
       --   ft = show u; 
     in 
       "************** ACCOUNTZ ***********\n\n" ++
-      "Begin Date : " ++ (show (y ^. dateBegin)) ++ "\n" ++
-      "End Date   : " ++ (show (y ^. dateEnd)) ++ "\n" ++
+      "Begin Date : " ++ show (y ^. dateBegin) ++ "\n" ++
+      "End Date   : " ++ show (y ^. dateEnd) ++ "\n" ++
       "\n******* Balance Sheet Begin *******\n" ++ 
-      (prx $ y ^. balanceSheetBegin) ++
+      prx (y ^. balanceSheetBegin) ++
       "\n******** Balance Sheet End ********\n" ++ 
-      (prx $ y ^. balanceSheetEnd) ++
+      prx (y ^. balanceSheetEnd) ++
       "\n*********** Profit Loss ***********\n" ++ 
-      (prx $ y ^. profitLoss) ++
+      prx (y ^. profitLoss) ++
       "\n************ Cash Flow ************\n" ++ 
-      (prx $ y ^. cashFlow) ++
+      prx (y ^. cashFlow) ++
       "\n*************** END ***************\n"
 
 -- |DEPRECATED : This is Just proof of concept -- Not to be used.
@@ -565,97 +562,93 @@ prnx y =
   let 
     prx :: FinType a => Maybe (Hm.HashMap a Double) -> Maybe String
     prx Nothing = Just "Nothing\n"
-    prx (Just x)=concat <$> (forM (Hm.toList x) $ \u -> return $ (show u)++"\n")
+    prx (Just x) = concat <$> forM (Hm.toList x) (\u -> return $ show u ++ "\n")
   in 
     "************** ACCOUNTZ ***********\n\n" ++
-    "Begin Date : " ++ (show (y ^. dateBegin)) ++ "\n" ++
-    "End Date   : " ++ (show (y ^. dateEnd)) ++ "\n" ++ 
+    "Begin Date : " ++ show (y ^. dateBegin) ++ "\n" ++
+    "End Date   : " ++ show (y ^. dateEnd) ++ "\n" ++ 
     (let Just v = prx $ y ^. balanceSheetBegin in v) ++
     (let Just v = prx $ y ^. balanceSheetEnd in v) 
 
 
 instance Approx Accountz where
   x =~ y = 
-    ( (x ^. dateBegin)          ==            (y ^. dateBegin)          &&
-      (x ^. dateEnd)            ==            (y ^. dateEnd)            &&
-      (x ^. balanceSheetBegin)  `maybeEqlRec` (y ^. balanceSheetBegin)  &&
-      (x ^. balanceSheetEnd)    `maybeEqlRec` (y ^. balanceSheetEnd)    &&
-      (x ^. profitLoss)         `maybeEqlRec` (y ^. profitLoss)         &&
-      (x ^. cashFlow)           `maybeEqlRec` (y ^. cashFlow)
-    )
+    (x ^. dateBegin)          ==            (y ^. dateBegin)          &&
+    (x ^. dateEnd)            ==            (y ^. dateEnd)            &&
+    (x ^. balanceSheetBegin)  `maybeEqlRec` (y ^. balanceSheetBegin)  &&
+    (x ^. balanceSheetEnd)    `maybeEqlRec` (y ^. balanceSheetEnd)    &&
+    (x ^. profitLoss)         `maybeEqlRec` (y ^. profitLoss)         &&
+    (x ^. cashFlow)           `maybeEqlRec` (y ^. cashFlow)
+    
 
 instance GetAccountz BsTyp where
   (!^>) x t = do p <- x^.balanceSheetBegin; return $ Hm.lookupDefault 0.0 t p
   (!>>) x t = do p <- x ^. balanceSheetEnd; return $ Hm.lookupDefault 0.0 t p
 
-  (!^~) x r = x & balanceSheetBegin .~ (Just (Hm.fromList r))
-  (!>~) x r = x & balanceSheetEnd .~ (Just (Hm.fromList r))
+  (!^~) x r = x & balanceSheetBegin ?~ Hm.fromList r
+  (!>~) x r = x & balanceSheetEnd ?~ Hm.fromList r
 
   (!^+) x (k,v) = do 
-    p <- (x ^. balanceSheetBegin)
-    return $ x&balanceSheetBegin .~(Just (Hm.insertWith (\nw ol->nw+ol) k v p))
+    p <- x ^. balanceSheetBegin
+    return $ x & balanceSheetBegin ?~ Hm.insertWith (+) k v p
 
   (!>+) x (k,v) = do 
-    p <- (x ^. balanceSheetEnd)
-    return $ x & balanceSheetEnd .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
+    p <- x ^. balanceSheetEnd
+    return $ x & balanceSheetEnd ?~ Hm.insertWith (+) k v p
 
   (!^%) x (k,v) = do 
-    p <- (x ^. balanceSheetBegin)
-    return $ x & balanceSheetBegin .~ (Just (Hm.insert k v p))
+    p <- x ^. balanceSheetBegin
+    return $ x & balanceSheetBegin ?~ Hm.insert k v p
 
   (!>%) x (k,v) = do 
-    p <- (x ^. balanceSheetEnd)
-    return $ x & balanceSheetEnd .~ (Just (Hm.insert k v p))
+    p <- x ^. balanceSheetEnd
+    return $ x & balanceSheetEnd ?~ Hm.insert k v p
 
   stringToTyp s = Hm.lookup s bsTypMap
 
 instance GetAccountz PlTyp where
   (!>>) x t = do p <- x^.profitLoss; return $ Hm.lookupDefault 0.0 t p
-  (!>~) x r = x & profitLoss .~ (Just (Hm.fromList r))
+  (!>~) x r = x & profitLoss ?~ Hm.fromList r
 
   (!>+) x (k,v) = do 
-    p <- (x ^. profitLoss)
-    return $ x & profitLoss .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
+    p <- x ^. profitLoss
+    return $ x & profitLoss ?~ Hm.insertWith (+) k v p
 
   (!>%) x (k,v) = do 
-    p <- (x ^. profitLoss)
-    return $ x & profitLoss .~ (Just (Hm.insert k v p))
+    p <- x ^. profitLoss
+    return $ x & profitLoss ?~ Hm.insert k v p
 
   stringToTyp s = Hm.lookup s plTypMap
 
 instance GetAccountz CfTyp where
   (!>>) x t = do p <- x^.cashFlow; return $ Hm.lookupDefault 0.0 t p
-  (!>~) x r = x & cashFlow .~ (Just (Hm.fromList r))
+  (!>~) x r = x & cashFlow ?~ Hm.fromList r
 
   (!>+) x (k,v) = do 
-    p <- (x ^. cashFlow)
-    return $ x & cashFlow .~ (Just (Hm.insertWith (\nw ol->nw+ol) k v p))
+    p <- x ^. cashFlow
+    return $ x & cashFlow ?~ Hm.insertWith (+) k v p
 
   (!>%) x (k,v) = do 
-    p <- (x ^. cashFlow)
-    return $ x & cashFlow .~ (Just (Hm.insert k v p))
+    p <- x ^. cashFlow
+    return $ x & cashFlow ?~ Hm.insert k v p
 
   stringToTyp s = Hm.lookup s cfTypMap
 
 -- |Extract Balance Sheet for Begin period
 balShBegin :: Accountz -> Maybe BalanceSheet
-balShBegin x = (x ^. balanceSheetBegin) >>= 
-  return . BalanceSheet (x ^. dateBegin) Actual 
+balShBegin x = BalanceSheet (x ^. dateBegin) Actual <$> x ^. balanceSheetBegin
   
 -- |Extract Balance Sheet for End period
 balShEnd :: Accountz -> Maybe BalanceSheet
-balShEnd x = (x ^. balanceSheetEnd) >>= 
-  return . BalanceSheet (x ^. dateEnd) Actual
+balShEnd x = BalanceSheet (x ^. dateEnd) Actual <$> (x ^. balanceSheetEnd)
 
 -- |Extract Profit Loss Statement
 profLoss :: Accountz -> Maybe ProfitLoss
-profLoss x = (x ^. profitLoss) >>= 
-  return . ProfitLoss (x ^. dateBegin) (x ^. dateEnd) Actual
+profLoss x = ProfitLoss (x^.dateBegin) (x^.dateEnd) Actual <$> (x^.profitLoss) 
 
 -- |Extract Cash Flow statement
 cashFl :: Accountz -> Maybe CashFlow
-cashFl x = (x ^. cashFlow) >>= 
-  return . CashFlow (x ^. dateBegin) (x ^. dateEnd) Actual
+cashFl x = CashFlow (x ^. dateBegin) (x ^. dateEnd) Actual <$> (x ^. cashFlow) 
 
 -- |Combine Begin & End Balance Sheet, Profit Loss Statement and Cash Flow 
 -- Statement to create Accountz
@@ -740,7 +733,7 @@ jsonToAccountz :: Text -> Maybe Accountz
 jsonToAccountz s =  do
   let 
     parseObj :: (GetAccountz a, FinType a) => As.Value -> Maybe (Maybe (Hm.HashMap a Double))
-    parseObj (As.Object x) = jRec x >>= return . Just 
+    parseObj (As.Object x) = Just <$> jRec x 
     parseObj As.Null = Just Nothing
     parseObj _ = Nothing
 
@@ -757,7 +750,7 @@ jsonToAccountz s =  do
 getEOMonth :: Text -> Maybe Day
 getEOMonth x = do
   y <- parseTimeM True defaultTimeLocale "%Y-%m-%d" (T.unpack x) :: Maybe Day
-  let (u,v,_) = (toGregorian y)
+  let (u,v,_) = toGregorian y
   return $ fromGregorian u v (if v == 6 || v == 9 then 30 else 31) 
 
 class FinStat a => GetStatementz a where
@@ -772,21 +765,21 @@ class FinStat a => GetStatementz a where
 
 instance GetStatementz BalanceSheet where
   updateBeginStatement x s = if x^.dateBegin == s^.datez 
-    then Just $ x & balanceSheetBegin .~ (Just (s ^. rec))
+    then Just $ x & balanceSheetBegin ?~ s ^. rec
     else Nothing
 
   updateEndStatement x s = if x^.dateEnd == s^.datez 
-    then Just $ x & balanceSheetEnd .~ (Just (s ^. rec))
+    then Just $ x & balanceSheetEnd ?~ s ^. rec
     else Nothing
 
 instance GetStatementz ProfitLoss where
   updateEndStatement x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
-    then Just $ x & profitLoss .~ (Just (s ^. rec))
+    then Just $ x & profitLoss ?~ s ^. rec
     else Nothing
 
 instance GetStatementz CashFlow where
   updateEndStatement x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
-    then Just $ x & cashFlow .~ (Just (s ^. rec))
+    then Just $ x & cashFlow ?~ s ^. rec
     else Nothing
 
 data Param = Param
@@ -800,11 +793,11 @@ makeFields ''Param
 
 instance Approx Param where
   x =~ y = 
-    ( (x ^. pU) =~ (y ^. pU) &&
-      (x ^. pW) =~ (y ^. pW) &&
-      (x ^. pE) =~ (y ^. pE) &&
-      (x ^. pD) =~ (y ^. pD) 
-    )
+    (x ^. pU) =~ (y ^. pU) &&
+    (x ^. pW) =~ (y ^. pW) &&
+    (x ^. pE) =~ (y ^. pE) &&
+    (x ^. pD) =~ (y ^. pD) 
+    
 
 data Company = Company
   { companyCode         ::  Text
@@ -825,9 +818,9 @@ The calulated elements includes Current Assets, Assets, Equity,
 -}
 calcElem :: FinType a=>[(a,[a],[a])]->Hm.HashMap a Double -> Hm.HashMap a Double
 calcElem [] h = h
-calcElem ((z,y0,y1):xs) h = calcElem xs (gv z h y0 y1) where
-  gv :: FinType a => a-> Hm.HashMap a Double -> [a]-> [a] ->Hm.HashMap a Double
-  gv k mp ad sb = Hm.insert k ((adder ad) - (adder sb)) mp where
+calcElem ((z,y0,y1):xs) h = calcElem xs (gv z y1 y0 h) where
+  gv :: FinType a => a -> [a]-> [a]-> Hm.HashMap a Double ->Hm.HashMap a Double
+  gv k ad sb mp = Hm.insert k (adder ad - adder sb) mp where
     adder = foldl' (\y w -> y + Hm.lookupDefault 0.0 w mp) 0.0
 
 {-|@setBsMap bs = Evaluate and Set BsMap@
@@ -836,38 +829,38 @@ The BsMap is evaluated as well as populated for calculated items
 like CurrentAssets, LongTermAssets, Assets, Equity etc. If those items are 
 already present, then they are updated. 
 
-At the end the ckBsMap run to ensure consistency in the Balance Sheet. Returns 
+At the end the checkBsMap run to ensure consistency in the Balance Sheet. Returns 
 __@Nothing@__ if inconsistant.
 -}
 setBsMap :: BsMap -> Maybe BsMap
 setBsMap bs = undefined
 
-{-|@ckBsMap bs = Evaluate consistency of BsMap@
+{-|@checkBsMap bs = Evaluate consistency of BsMap@
 
 In case calculated items has not been set then the function internally 
 sets them. 
 -}
-ckBsMap :: BsMap -> Bool
-ckBsMap bs = undefined
+checkBsMap :: BsMap -> Bool
+checkBsMap bs = undefined
 
 {-|@setPlMap pl = Evaluate and Set PlMap@
 
 The PlMap is evaluated as well as populated for calculated items like Pbitda, 
 Pbit etc. If those items are already present, then they are updated. 
 
-At the end the ckPlMap run to ensure consistency in the Profit Loss Statement. 
+At the end the checkPlMap run to ensure consistency in the Profit Loss Statement. 
 Returns __@Nothing@__ if inconsistant.
 -}
 setPlMap :: PlMap -> Maybe PlMap
 setPlMap pl = undefined
 
-{-|@ckPlMap pl = Evaluate consistency of PlMap@
+{-|@checkPlMap pl = Evaluate consistency of PlMap@
 
 In case calculated items has not been set then the function internally 
 sets them. 
 -}
-ckPlMap :: PlMap -> Bool
-ckPlMap pl = undefined
+checkPlMap :: PlMap -> Bool
+checkPlMap pl = undefined
 
 {-|@setCfMap cf = Evaluate and Set CfMap@
 
@@ -875,19 +868,19 @@ The CfMap is evaluated as well as populated for calculated items
 like CashFlowOperations, Fcff, Fcfd etc. If those items are 
 already present, then they are updated. 
 
-At the end the ckCfMap run to ensure consistency in the Cash Flow Statements. 
+At the end the checkCfMap run to ensure consistency in the Cash Flow Statements. 
 Returns __@Nothing@__ if inconsistant.
 -}
 setCfMap :: CfMap -> Maybe CfMap
 setCfMap cf = undefined
 
-{-|@ckCfMap cf = Evaluate consistency of CfMap@
+{-|@checkCfMap cf = Evaluate consistency of CfMap@
 
 In case calculated items has not been set then the function internally 
 sets them. 
 -}
-ckCfMap :: CfMap -> Bool
-ckCfMap cf = undefined
+checkCfMap :: CfMap -> Bool
+checkCfMap cf = undefined
 
 -- |@debit bs t v = debit value v from entry t in Balance Sheet bs@
 debit :: BsMap -> BsTyp -> Double -> BsMap
@@ -945,7 +938,8 @@ debit bs t v = case t of
   RetainedEarnings              -> adder (-v)
   AccumulatedOci                -> adder (-v)
   MinorityInterests             -> adder (-v)
-  where adder x = Hm.insertWith (\nw ol -> nw+ol) t x bs; {-# INLINE adder #-}
+  _                             -> error "Derived Balance Sheet Item"
+  where adder x = Hm.insertWith (+) t x bs; {-# INLINE adder #-}
 {-# INLINE debit #-}
 
 -- |@credit bs t v = credit value v from entry t in Balance Sheet bs@
@@ -981,13 +975,13 @@ accountzVecCheck :: V.Vector Accountz -> Bool
 accountzVecCheck va = undefined 
 
 -- |Check Accountz for consistency
-ckAccountz :: Accountz -> Bool
-ckAccountz ac = undefined
+checkAccountz :: Accountz -> Bool
+checkAccountz ac = undefined
 -- Checks BalanceSheet >> ProfitLoss >> CashFlow >> Combination
 
 -- |Check connecting Dates & BalanceSheet then all Accountz
-ckCompany :: Company -> Bool
-ckCompany cp = undefined
+checkCompany :: Company -> Bool
+checkCompany cp = undefined
 
 -- |Interpolate missing Financial Statements
 intpAccountz :: V.Vector Accountz -> Maybe (V.Vector Accountz)

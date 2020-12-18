@@ -13,38 +13,15 @@ build-type:           Simple
 cabal-version:        >=1.10
 extra-source-files:   README.md
 
-executable finz
-  hs-source-dirs:       src
-  ghc-options:          -O -Wall -fwarn-tabs 
-  main-is:              Main.hs
-  default-language:     Haskell2010
-  build-depends:        base >= 4.7 && < 5
-                  ,     containers  
-                  ,     time
-                  ,     vector
-                  ,     finz
-                  ,     deepseq
-                  ,     lens
-                  ,     hashable
-                  ,     unordered-containers
-                  ,     aeson
-                  ,     scientific
-                  ,     statistics
-                  ,     approx
-                  ,     utilities
-
 library
     exposed-modules:    Finance.Base
                   ,     Finance.Statements
                   ,     Finance.Bonds
                   ,     Finance.Economics
-                  -- ,     Finance.Utilities.Numeric
-                  -- ,     Finance.Utilities.Numeric.Optima
     ghc-options:        -O -Wall -fwarn-tabs 
     build-depends:      base >= 4.7 && < 5
                   ,     containers
                   ,     time
-                  ,     QuickCheck
                   ,     vector
                   ,     deepseq
                   ,     lens
@@ -67,11 +44,8 @@ test-suite tests
     hs-source-dirs:     tests 
     build-depends:      base >= 4.7 && < 5
                     ,   containers
-                    ,   hspec
-                    ,   QuickCheck
                     ,   time
                     ,   finz
-                    -- ,   utilz
                     ,   vector
                     ,   deepseq
                     ,   hashable
