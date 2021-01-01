@@ -27,31 +27,32 @@ You may see the github repository at <https://github.com/n-kishaloy/finz>
 
 
 module Finance.Statements
-( BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statementz (..)
-, Accountz (..), GetAccountz (..), GetStatementz (..), GetRecords (..)
+( BalanceSheet (..), ProfitLoss (..), CashFlow (..), Statement (..)
+, Account (..), GetAccount (..), GetStatement (..), GetRecords (..)
 , Company (..), HasCode (..), HasAffiliated (..), HasConsolidated (..)
 , HasDocs (..), HasSharePrices (..), HasRate (..), HasBeta (..)
 , Param (..), HasPU (..), HasPW (..), HasPE (..), HasPD (..)
-, eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec, cleanRec, cleanAccountz
-, balShBegin, balShEnd, profLoss, cashFl, mkAccountz, splitAccountz
+, eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec, cleanRec, cleanAccount
+, balShBegin, balShEnd, profLoss, cashFl, mkAccount, splitAccount
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
 , HasStatuz (..), HasRec (..)
 , HasDatez (..), HasDateBegin (..), HasDateEnd (..), HasBalanceSheetBegin (..)
 , HasBalanceSheetEnd (..), HasProfitLoss (..), HasCashFlow (..)
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
-, HasChecker(..), accountzToJson, jsonToAccountz
+, HasChecker(..), accountToJson, jsonToAccount
 , FinType, FinStat
 , setBsMap, setPlMap, setCfMap, checkBsMap, checkPlMap, checkCfMap
 , getEOMonth
 , credit, debit, transact, transactSeries
-, accountzVecCheck
+, accountVecCheck
 ) where
 
 import GHC.Generics (Generic)
 import Data.Hashable ( Hashable )
 import Data.Time (Day, fromGregorian, parseTimeM, defaultTimeLocale, toGregorian)
 import qualified Data.HashMap.Strict as Hm
+import Data.Bifunctor (second)
 
 import qualified Finance.Base as F
 
@@ -60,11 +61,13 @@ import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 
 import qualified Data.Vector as V
-import Data.Vector ((!),(//))
+import Data.Vector ((!))
 
 import Data.List (foldl')
 import qualified Data.Aeson as As
 import Data.Scientific (toRealFloat)
+
+import Numeric.Utils (dround)
 
 import Data.Approx
 
@@ -275,16 +278,16 @@ data CashFlow = CashFlow
 
 makeFields ''CashFlow
 
-data Statementz = Statementz
-  { statementzDateBegin         :: Day
-  , statementzDateEnd           :: Day
-  , statementzBalanceSheetBegin :: Maybe BalanceSheet
-  , statementzBalanceSheetEnd   :: Maybe BalanceSheet
-  , statementzProfitLoss        :: Maybe ProfitLoss
-  , statementzCashFlow          :: Maybe CashFlow
+data Statement = Statement
+  { statementDateBegin         :: Day
+  , statementDateEnd           :: Day
+  , statementBalanceSheetBegin :: Maybe BalanceSheet
+  , statementBalanceSheetEnd   :: Maybe BalanceSheet
+  , statementProfitLoss        :: Maybe ProfitLoss
+  , statementCashFlow          :: Maybe CashFlow
   } deriving (Show)
 
-makeFields ''Statementz
+makeFields ''Statement
 
 instance Approx BsTyp where x =~ y = x == y
 instance Approx PlTyp where x =~ y = x == y
@@ -312,7 +315,7 @@ instance Approx CashFlow where
     (x ^. statuz)     ==  (y ^. statuz)     &&
     (x ^. rec)  `eqlRec`  (y ^. rec)
      
-instance Approx Statementz where 
+instance Approx Statement where 
   x =~ y = undefined
 
 {-|
@@ -409,6 +412,8 @@ maybeEqlRec _ _ = False
 notMaybeEqlRec :: FinType a => Maybe (Hm.HashMap a Double) -> Maybe (Hm.HashMap a Double) -> Bool
 notMaybeEqlRec x y = not $ maybeEqlRec x y
 
+infix 4 `eqlRec`, `notEqlRec`, `maybeEqlRec`, `notMaybeEqlRec`
+
 bsTypMap :: Hm.HashMap Text BsTyp
 bsTypMap = Hm.fromList $ zip (T.pack . show <$> xf) xf 
   where xf = enumFrom minBound::[BsTyp] 
@@ -423,19 +428,19 @@ cfTypMap = Hm.fromList $ zip (T.pack . show <$> xf) xf
 
 
 -- |Financial statements corresponding to a period between __DateBegin__ and __DateEnd__. 
-data Accountz = Accountz
-  { accountzDateBegin         :: Day
-  , accountzDateEnd           :: Day
-  , accountzBalanceSheetBegin :: Maybe BsMap
-  , accountzBalanceSheetEnd   :: Maybe BsMap
-  , accountzProfitLoss        :: Maybe PlMap
-  , accountzCashFlow          :: Maybe CfMap
+data Account = Account
+  { accountDateBegin         :: Day
+  , accountDateEnd           :: Day
+  , accountBalanceSheetBegin :: Maybe BsMap
+  , accountBalanceSheetEnd   :: Maybe BsMap
+  , accountProfitLoss        :: Maybe PlMap
+  , accountCashFlow          :: Maybe CfMap
   } deriving (FinStat)
 
-makeFields ''Accountz
+makeFields ''Account
 
 {-|
-Getter and Setter for Accountz. The functions are common between the 3 different
+Getter and Setter for Account. The functions are common between the 3 different
 type of Statements and it is the /type/ of the /key/ which determines, which 
 statement is chosen.
 
@@ -465,49 +470,49 @@ For ProfitLoss and CashFlow, either may be used.
 provided separately as otherwise, the function has no way of knowing if 
 the Text represents BsMap, PlMap or CfMap .
 -}
-class FinType a => GetAccountz a where
-  (!>>) :: Accountz -> a -> Maybe Double             -- Get
-  (!^>) :: Accountz -> a -> Maybe Double
+class FinType a => GetAccount a where
+  (!>>) :: Account -> a -> Maybe Double             -- Get
+  (!^>) :: Account -> a -> Maybe Double
   (!^>) = (!>>)
 
-  (!>~) :: Accountz -> [(a,Double)] -> Accountz      -- Set/Reset
-  (!^~) :: Accountz -> [(a,Double)] -> Accountz      -- Set/Reset
+  (!>~) :: Account -> [(a,Double)] -> Account      -- Set/Reset
+  (!^~) :: Account -> [(a,Double)] -> Account      -- Set/Reset
   (!^~) = (!>~)
 
-  (!>+) :: Accountz -> (a,Double) -> Maybe Accountz  -- Add/Create
-  (!^+) :: Accountz -> (a,Double) -> Maybe Accountz  -- Add/Create
+  (!>+) :: Account -> (a,Double) -> Maybe Account  -- Add/Create
+  (!^+) :: Account -> (a,Double) -> Maybe Account  -- Add/Create
   (!^+) = (!>+)
 
-  (!>-) :: Accountz -> (a,Double) -> Maybe Accountz  -- Subtract/Create -ve
-  (!^-) :: Accountz -> (a,Double) -> Maybe Accountz  -- Subtract/Create -ve
+  (!>-) :: Account -> (a,Double) -> Maybe Account  -- Subtract/Create -ve
+  (!^-) :: Account -> (a,Double) -> Maybe Account  -- Subtract/Create -ve
   x !>- (k,v) = x !>+ (k,-v) 
   x !^- (k,v) = x !^+ (k,-v) 
 
-  (!>%) :: Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
-  (!^%) :: Accountz -> (a,Double) -> Maybe Accountz  -- Upd/Create
+  (!>%) :: Account -> (a,Double) -> Maybe Account  -- Upd/Create
+  (!^%) :: Account -> (a,Double) -> Maybe Account  -- Upd/Create
   (!^%) = (!>%)
 
-  addToEndItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  addToEndItems :: Account -> [(a,Double)] -> Maybe Account  -- List Add
   x `addToEndItems` [] = return x
   x `addToEndItems` (y:ys) = x !>+ y >>= (`addToEndItems` ys)
 
-  addToBeginItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  addToBeginItems :: Account -> [(a,Double)] -> Maybe Account  -- List Add
   x `addToBeginItems` [] = return x
   x `addToBeginItems` (y:ys) = x !^+ y >>= (`addToBeginItems` ys)
 
-  subToEndItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  subToEndItems :: Account -> [(a,Double)] -> Maybe Account  -- List Add
   x `subToEndItems` [] = return x
   x `subToEndItems` (y:ys) = x !>- y >>= (`subToEndItems` ys)
 
-  subToBeginItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Add
+  subToBeginItems :: Account -> [(a,Double)] -> Maybe Account  -- List Add
   x `subToBeginItems` [] = return x
   x `subToBeginItems` (y:ys) = x !^- y >>= (`subToBeginItems` ys)
 
-  updateEndItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
+  updateEndItems :: Account -> [(a,Double)] -> Maybe Account  -- List Upd
   x `updateEndItems` [] = return x
   x `updateEndItems` (y:ys) = x !>% y >>= (`updateEndItems` ys)
 
-  updateBeginItems :: Accountz -> [(a,Double)] -> Maybe Accountz  -- List Upd
+  updateBeginItems :: Account -> [(a,Double)] -> Maybe Account  -- List Upd
   x `updateBeginItems` [] = return x
   x `updateBeginItems` (y:ys) = x !^% y >>= (`updateBeginItems` ys)
 
@@ -521,7 +526,7 @@ class FinType a => GetAccountz a where
   jRec :: (Hashable a, Eq a) => As.Object -> Maybe (Hm.HashMap a Double)
   jRec x = Hm.fromList <$> foldl' f (Just []) (Hm.toList x) 
     where
-    f :: GetAccountz a => Maybe [(a,Double)] -> (Text,As.Value) -> Maybe [(a,Double)]
+    f :: GetAccount a => Maybe [(a,Double)] -> (Text,As.Value) -> Maybe [(a,Double)]
     f (Just x) (u, As.Number v) = case stringToTyp u of 
       Just p -> Just $ (p,toRealFloat v::Double):x 
       _ -> Nothing
@@ -530,7 +535,7 @@ class FinType a => GetAccountz a where
   jsonToRec :: (Hashable a, Eq a) => Text -> Maybe (Hm.HashMap a Double)
   jsonToRec s = As.decodeStrict (encodeUtf8 s) >>= jRec
 
-instance Show Accountz where
+instance Show Account where
   show y = 
     let 
       prx :: FinType a => Maybe (Hm.HashMap a Double) -> String
@@ -542,7 +547,7 @@ instance Show Accountz where
       -- shwLn (u,v) = p ++ "\n" where
       --   ft = show u; 
     in 
-      "************** ACCOUNTZ ***********\n\n" ++
+      "************** Account ***********\n\n" ++
       "Begin Date : " ++ show (y ^. dateBegin) ++ "\n" ++
       "End Date   : " ++ show (y ^. dateEnd) ++ "\n" ++
       "\n******* Balance Sheet Begin *******\n" ++ 
@@ -557,31 +562,31 @@ instance Show Accountz where
 
 -- |DEPRECATED : This is Just proof of concept -- Not to be used.
 -- Use show instead
-prnx :: Accountz -> String
+prnx :: Account -> String
 prnx y = 
   let 
     prx :: FinType a => Maybe (Hm.HashMap a Double) -> Maybe String
     prx Nothing = Just "Nothing\n"
     prx (Just x) = concat <$> forM (Hm.toList x) (\u -> return $ show u ++ "\n")
   in 
-    "************** ACCOUNTZ ***********\n\n" ++
+    "************** Account ***********\n\n" ++
     "Begin Date : " ++ show (y ^. dateBegin) ++ "\n" ++
     "End Date   : " ++ show (y ^. dateEnd) ++ "\n" ++ 
     (let Just v = prx $ y ^. balanceSheetBegin in v) ++
     (let Just v = prx $ y ^. balanceSheetEnd in v) 
 
 
-instance Approx Accountz where
+instance Approx Account where
   x =~ y = 
-    (x ^. dateBegin)          ==            (y ^. dateBegin)          &&
-    (x ^. dateEnd)            ==            (y ^. dateEnd)            &&
-    (x ^. balanceSheetBegin)  `maybeEqlRec` (y ^. balanceSheetBegin)  &&
-    (x ^. balanceSheetEnd)    `maybeEqlRec` (y ^. balanceSheetEnd)    &&
-    (x ^. profitLoss)         `maybeEqlRec` (y ^. profitLoss)         &&
-    (x ^. cashFlow)           `maybeEqlRec` (y ^. cashFlow)
+    x ^. dateBegin          ==            y ^. dateBegin          &&
+    x ^. dateEnd            ==            y ^. dateEnd            &&
+    x ^. balanceSheetBegin  `maybeEqlRec` y ^. balanceSheetBegin  &&
+    x ^. balanceSheetEnd    `maybeEqlRec` y ^. balanceSheetEnd    &&
+    x ^. profitLoss         `maybeEqlRec` y ^. profitLoss         &&
+    x ^. cashFlow           `maybeEqlRec` y ^. cashFlow
     
 
-instance GetAccountz BsTyp where
+instance GetAccount BsTyp where
   (!^>) x t = do p <- x^.balanceSheetBegin; return $ Hm.lookupDefault 0.0 t p
   (!>>) x t = do p <- x ^. balanceSheetEnd; return $ Hm.lookupDefault 0.0 t p
 
@@ -606,7 +611,7 @@ instance GetAccountz BsTyp where
 
   stringToTyp s = Hm.lookup s bsTypMap
 
-instance GetAccountz PlTyp where
+instance GetAccount PlTyp where
   (!>>) x t = do p <- x^.profitLoss; return $ Hm.lookupDefault 0.0 t p
   (!>~) x r = x & profitLoss ?~ Hm.fromList r
 
@@ -620,7 +625,7 @@ instance GetAccountz PlTyp where
 
   stringToTyp s = Hm.lookup s plTypMap
 
-instance GetAccountz CfTyp where
+instance GetAccount CfTyp where
   (!>>) x t = do p <- x^.cashFlow; return $ Hm.lookupDefault 0.0 t p
   (!>~) x r = x & cashFlow ?~ Hm.fromList r
 
@@ -635,28 +640,28 @@ instance GetAccountz CfTyp where
   stringToTyp s = Hm.lookup s cfTypMap
 
 -- |Extract Balance Sheet for Begin period
-balShBegin :: Accountz -> Maybe BalanceSheet
+balShBegin :: Account -> Maybe BalanceSheet
 balShBegin x = BalanceSheet (x ^. dateBegin) Actual <$> x ^. balanceSheetBegin
   
 -- |Extract Balance Sheet for End period
-balShEnd :: Accountz -> Maybe BalanceSheet
+balShEnd :: Account -> Maybe BalanceSheet
 balShEnd x = BalanceSheet (x ^. dateEnd) Actual <$> (x ^. balanceSheetEnd)
 
 -- |Extract Profit Loss Statement
-profLoss :: Accountz -> Maybe ProfitLoss
+profLoss :: Account -> Maybe ProfitLoss
 profLoss x = ProfitLoss (x^.dateBegin) (x^.dateEnd) Actual <$> (x^.profitLoss) 
 
 -- |Extract Cash Flow statement
-cashFl :: Accountz -> Maybe CashFlow
+cashFl :: Account -> Maybe CashFlow
 cashFl x = CashFlow (x ^. dateBegin) (x ^. dateEnd) Actual <$> (x ^. cashFlow) 
 
 -- |Combine Begin & End Balance Sheet, Profit Loss Statement and Cash Flow 
--- Statement to create Accountz
-mkAccountz :: Maybe BalanceSheet -> Maybe BalanceSheet -> Maybe ProfitLoss -> Maybe CashFlow -> Maybe Accountz
-mkAccountz _ _ Nothing _ = Nothing
-mkAccountz bsBeg bsEnd (Just pl) cf = 
+-- Statement to create Account
+mkAccount :: Maybe BalanceSheet -> Maybe BalanceSheet -> Maybe ProfitLoss -> Maybe CashFlow -> Maybe Account
+mkAccount _ _ Nothing _ = Nothing
+mkAccount bsBeg bsEnd (Just pl) cf = 
   if d1 == dtbs1 && d2 == dtbs2 && d1 == dtcf1 && d2 == dtcf2
-  then Just $ Accountz d1 d2 bsBg bsEn (Just (pl^.rec)) cfMp
+  then Just $ Account d1 d2 bsBg bsEn (Just (pl^.rec)) cfMp
   else Nothing
   where
     d1 = pl ^. dateBegin
@@ -674,28 +679,26 @@ mkAccountz bsBeg bsEnd (Just pl) cf =
     (dtbs2,bsEn) = datBS bsEnd d2
     (dtcf1,dtcf2,cfMp) = datCF cf d1 d2
 
--- |Split Accountz into its constituent Balance Sheets, Profit Loss Statement
+-- |Split Account into its constituent Balance Sheets, Profit Loss Statement
 -- and Cash FLow Statement.
-splitAccountz :: Accountz -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
-splitAccountz x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
+splitAccount :: Account -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
+splitAccount x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
 
 -- |@cleanRec mp = Remove all 0 value items@
 cleanRec :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double
-cleanRec =  Hm.fromList . filter (\(_,v) -> v /~ 0.0) . Hm.toList
+cleanRec = Hm.fromList . filter ((/=0.0).snd) . (second (dround 2) <$>) . Hm.toList
 
--- |@cleanAccountz ac = Clean all items in Accountz from the HashMaps@
-cleanAccountz :: Accountz -> Accountz
-cleanAccountz ac = Accountz (ac ^. dateBegin) (ac ^. dateEnd) bB bE pl cf where
+-- |@cleanAccount ac = Clean all items in Account from the HashMaps@
+cleanAccount :: Account -> Account
+cleanAccount ac = Account (ac ^. dateBegin) (ac ^. dateEnd) bB bE pl cf where
   bB  = cleaner $ ac ^. balanceSheetBegin 
   bE  = cleaner $ ac ^. balanceSheetEnd 
   pl  = cleaner $ ac ^. profitLoss 
   cf  = cleaner $ ac ^. cashFlow 
-
-  cleaner Nothing = Nothing
   cleaner x = cleanRec <$> x
 
 {-|
-Convert Accountz to JSON. Typical JSON representation looks as below
+Convert Account to JSON. Typical JSON representation looks as below
 
 @
 {"dateBegin":"2018-03-31","dateEnd":"2019-03-31","balanceSheetBegin":null,
@@ -709,8 +712,8 @@ Convert Accountz to JSON. Typical JSON representation looks as below
 "CashFlowOperations":53.35,"CashFlowFinancing":-3.5}}
 @
 -}
-accountzToJson :: Accountz -> Text
-accountzToJson x = 
+accountToJson :: Account -> Text
+accountToJson x = 
   T.concat["{",dbeg,",",dend,",",b1J,",",b2J,",",plJ,",",cfJ,"}"] 
   where
   dbeg = T.concat["\"dateBegin\":\"", T.pack $ show (x ^. dateBegin),"\""]
@@ -728,11 +731,11 @@ accountzToJson x =
   cf = x ^. cashFlow; cfJ = T.concat ["\"cashFlow\":",cfx]
   cfx = case cf of Nothing -> "null"; Just cfq -> recToJSON cfq
 
--- |Convert JSON to Accountz
-jsonToAccountz :: Text -> Maybe Accountz
-jsonToAccountz s =  do
+-- |Convert JSON to Account
+jsonToAccount :: Text -> Maybe Account
+jsonToAccount s =  do
   let 
-    parseObj :: (GetAccountz a, FinType a) => As.Value -> Maybe (Maybe (Hm.HashMap a Double))
+    parseObj :: (GetAccount a, FinType a) => As.Value -> Maybe (Maybe (Hm.HashMap a Double))
     parseObj (As.Object x) = Just <$> jRec x 
     parseObj As.Null = Just Nothing
     parseObj _ = Nothing
@@ -745,7 +748,7 @@ jsonToAccountz s =  do
   plX <- Hm.lookup "profitLoss" rz >>= parseObj 
   cfX <- Hm.lookup "cashFlow" rz >>= parseObj 
 
-  return $ Accountz dBeg dEnd bsB bsE plX cfX
+  return $ Account dBeg dEnd bsB bsE plX cfX
 
 getEOMonth :: Text -> Maybe Day
 getEOMonth x = do
@@ -753,17 +756,17 @@ getEOMonth x = do
   let (u,v,_) = toGregorian y
   return $ fromGregorian u v (if v == 6 || v == 9 then 30 else 31) 
 
-class FinStat a => GetStatementz a where
+class FinStat a => GetStatement a where
   toJsonz :: a -> String
   fromJsonz :: String -> a
 
-  updateEndStatement :: Accountz -> a -> Maybe Accountz
-  updateBeginStatement :: Accountz -> a -> Maybe Accountz
-  updateStatement :: Accountz -> a -> Maybe Accountz
+  updateEndStatement :: Account -> a -> Maybe Account
+  updateBeginStatement :: Account -> a -> Maybe Account
+  updateStatement :: Account -> a -> Maybe Account
   updateBeginStatement = updateEndStatement
   updateStatement = updateEndStatement
 
-instance GetStatementz BalanceSheet where
+instance GetStatement BalanceSheet where
   updateBeginStatement x s = if x^.dateBegin == s^.datez 
     then Just $ x & balanceSheetBegin ?~ s ^. rec
     else Nothing
@@ -772,12 +775,12 @@ instance GetStatementz BalanceSheet where
     then Just $ x & balanceSheetEnd ?~ s ^. rec
     else Nothing
 
-instance GetStatementz ProfitLoss where
+instance GetStatement ProfitLoss where
   updateEndStatement x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
     then Just $ x & profitLoss ?~ s ^. rec
     else Nothing
 
-instance GetStatementz CashFlow where
+instance GetStatement CashFlow where
   updateEndStatement x s = if x^.dateBegin == s^.dateBegin && x^.dateEnd == s^.dateEnd
     then Just $ x & cashFlow ?~ s ^. rec
     else Nothing
@@ -803,7 +806,7 @@ data Company = Company
   { companyCode         ::  Text
   , companyAffiliated   ::  Maybe (Hm.HashMap Text Double)
   , companyConsolidated ::  Bool
-  , companyDocs         ::  V.Vector Accountz
+  , companyDocs         ::  V.Vector Account
   , companySharePrices  ::  Maybe F.DTrend
   , companyRate         ::  Maybe (F.TrendData Param)
   , companyBeta         ::  Maybe (F.TrendData Param)
@@ -841,7 +844,7 @@ In case calculated items has not been set then the function internally
 sets them. 
 -}
 checkBsMap :: BsMap -> Bool
-checkBsMap bs = undefined
+checkBsMap bs = True
 
 {-|@setPlMap pl = Evaluate and Set PlMap@
 
@@ -860,7 +863,7 @@ In case calculated items has not been set then the function internally
 sets them. 
 -}
 checkPlMap :: PlMap -> Bool
-checkPlMap pl = undefined
+checkPlMap pl = True
 
 {-|@setCfMap cf = Evaluate and Set CfMap@
 
@@ -880,7 +883,7 @@ In case calculated items has not been set then the function internally
 sets them. 
 -}
 checkCfMap :: CfMap -> Bool
-checkCfMap cf = undefined
+checkCfMap cf = True
 
 -- |@debit bs t v = debit value v from entry t in Balance Sheet bs@
 debit :: BsMap -> BsTyp -> Double -> BsMap
@@ -967,25 +970,46 @@ transact bs deb crd val = credit (debit bs deb val) crd val
 transactSeries :: BsMap -> [(BsTyp, BsTyp, Double)] -> BsMap
 transactSeries = foldl' (\y (db,cr,v) -> transact y db cr v)
 
--- |Check if consecutive Accountz in a Vec is consistent
--- Basically checking accountz0.bal_shEnd == accountz1.bal_shBegin && 
--- accountz0.dateEnd == accountz1.dateBegin && accountz0.dateEnd /~ None
--- && accountz1.dateBegin /~ None
-accountzVecCheck :: V.Vector Accountz -> Bool
-accountzVecCheck va = undefined 
+-- |Check if two accounts x and y are consective or not
+-- Check that dates and Balanxe Sheets match
+isConsecutiveAccount :: Account -> Account -> Bool
+isConsecutiveAccount x y = 
+  x ^. dateEnd == y ^. dateBegin && 
+  x ^. balanceSheetEnd `maybeEqlRec` y ^. balanceSheetBegin
 
--- |Check Accountz for consistency
-checkAccountz :: Accountz -> Bool
-checkAccountz ac = undefined
+-- |Check if consecutive Account in a Vec is consistent
+-- Basically checking account0.bal_shEnd == account1.bal_shBegin && 
+-- account0.dateEnd == account1.dateBegin && account0.dateEnd /~ None
+-- && account1.dateBegin /~ None
+accountVecCheck :: V.Vector Account -> Bool
+accountVecCheck vx = foldl' f (checkAccount (vx!0)) [0..(length vx - 2)] where
+  f y i = y && isConsecutiveAccount (vx!i) (vx!(i+1)) && checkAccount (vx!(i+1))
+
+-- |Check Account for consistency
+checkAccount :: Account -> Bool
+checkAccount (Account _ _ bB bE pl cf) = 
+  let
+    ckBS (Just b) = checkBsMap b
+    ckBS Nothing  = True 
+
+    ckPL (Just p) = checkPlMap p 
+    ckPL Nothing  = True 
+
+    ckCF (Just c) = checkCfMap c
+    ckCF Nothing  = True 
+
+  in
+    ckBS bB && ckBS bE && ckPL pl && ckCF cf
 -- Checks BalanceSheet >> ProfitLoss >> CashFlow >> Combination
 
--- |Check connecting Dates & BalanceSheet then all Accountz
+-- |Check connecting Dates & BalanceSheet then all Account
 checkCompany :: Company -> Bool
-checkCompany cp = undefined
+checkCompany cp = accountVecCheck (cp ^. docs)
 
 -- |Interpolate missing Financial Statements
-intpAccountz :: V.Vector Accountz -> Maybe (V.Vector Accountz)
-intpAccountz va = undefined
+intpAccount :: V.Vector Account -> Maybe (V.Vector Account)
+intpAccount va = undefined
+
 
 -- |Calculate Beta
 findBeta :: Company -> Either String Company

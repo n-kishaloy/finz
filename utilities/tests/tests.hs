@@ -60,7 +60,9 @@ main = do
   quickCheck $ Op.conjGradPR (
     \x -> ((x U.! 0) - 3.0)**4.0 + ((x U.! 1) - 4.0)**2.0 + ((x U.! 2) - 2.0)**2.0 + ((x U.! 2) - 2.0)**4.0 + 10.0 ) (U.fromList [4.2,2.0,0.75]) =~ Just (U.fromList [2.9959574875,4,2])
 
-  
+  quickCheck $ Nu.mround 200 257878.257 == 257800.0
+  quickCheck $ Nu.dround 3 2.569878 == 2.570
+  quickCheck $ Nu.dround 2 3.562478 == 3.56
 
 
   print $ "Bye"

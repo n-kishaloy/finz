@@ -7,9 +7,9 @@
 module Numeric.Utils
 ( dot
 , (+^), (-^), (*^), (/^), interp
-, grad
-, negGrad
+, grad, negGrad
 , DVec
+, mround, dround
 ) where
 
 import Data.Vector.Unboxed ((!),(//),Unbox)
@@ -58,3 +58,9 @@ negGrad f v = runST $ do
   U.forM (U.fromList [0..(U.length v - 1)]) $ \i -> do
     let vi = v ! i; dvm = vi*1e-8; z = v // [(i, vi - dvm)] 
     return ((f z - f0)/dvm) -- `debug` ("hi " ++ show z)
+
+mround :: RealFloat a => a -> a -> a
+mround m = (*m) . fromInteger . round . (/m)
+
+dround :: RealFloat  a => Int -> a -> a
+dround n = mround (1/(10 ^^ n))

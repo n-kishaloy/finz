@@ -6,7 +6,7 @@
 module Main where
 
 
-import Numeric.Utils (dot,(+^), (-^), (*^), (/^), DVec)
+import Numeric.Utils (dot,(+^), (-^), (*^), (/^), DVec, dround)
 import qualified Numeric.Utils as Nu
 import qualified Numeric.Optima as Op
 import Data.Approx ( Approx((=~), (/~)) )
@@ -19,7 +19,7 @@ import qualified Finance.Statements as S
 import qualified Finance.Bonds as B
 import Finance.Statements (HasStatuz(..), HasChk (..), HasShk(..)) -- pollution
 import Finance.Statements (BsTyp (..), PlTyp (..), CfTyp (..), GetRecords (..)) 
-import Finance.Statements (GetAccountz(..), GetStatementz (..)  )
+import Finance.Statements (GetAccount (..), GetStatement (..)  )
 -- pollution
 import Finance.Statements (HasRec(..), HasBalanceSheetBegin (..), HasBalanceSheetEnd (..), HasDateBegin (..), HasDatez (..))
 import Finance.Statements (BalanceSheet (..), ProfitLoss (..), CashFlow (..))
@@ -32,7 +32,7 @@ import Data.HashMap.Strict ((!))
 import Data.Text (Text)
 import qualified Data.Text as T
 
-import Control.Lens ((^.),(.~),(&))
+import Control.Lens ((^.),(.~),(&),(?~))
 
 import Data.List (foldl')
 qTest :: Show a => a -> [Bool] -> IO ()
@@ -317,23 +317,23 @@ main = do
     (DisPpe,22.25),(CfInvestmentDividends,78.58),
     (OtherCfInvestments,68.58),(CashFlowOperations,38.35)]]
 
-  -- print "Accountz"
+  -- print "Account"
 
-  let acz = S.Accountz {
-      S.accountzDateBegin = fromGregorian 2018 3 31
-    , S.accountzDateEnd   = fromGregorian 2019 3 31
-    , S.accountzBalanceSheetBegin = Nothing
-    , S.accountzBalanceSheetEnd = 
+  let acz = S.Account {
+      S.accountDateBegin = fromGregorian 2018 3 31
+    , S.accountDateEnd   = fromGregorian 2019 3 31
+    , S.accountBalanceSheetBegin = Nothing
+    , S.accountBalanceSheetEnd = 
       Just $ Hm.fromList [
         (Cash,                30.45)
       , (CurrentReceivables,  80.65)
       ]
-    , S.accountzProfitLoss = 
+    , S.accountProfitLoss = 
       Just $ Hm.fromList [
         (S.OperatingRevenue,    58.35)
       , (S.OtherExpenses,       41.58) 
       ]
-    , S.accountzCashFlow = 
+    , S.accountCashFlow = 
       Just $ Hm.fromList [ 
         (S.CashFlowOperations,  38.35)
       , (S.OtherCfInvestments,  48.58) 
@@ -493,8 +493,8 @@ main = do
         ]
     }
 
-  let Just mka = S.mkAccountz b1 b2 pl cf
-  -- print $ "spl"; print $ S.splitAccountz mka
+  let Just mka = S.mkAccount b1 b2 pl cf
+  -- print $ "spl"; print $ S.splitAccount mka
 
   let Just ska = mka `updateBeginStatement` S.BalanceSheet {
       S.balanceSheetDatez = fromGregorian 2018 3 31,
@@ -555,7 +555,7 @@ main = do
   -- print "ska"; print ska
 
   -- print "JSON"
-  let (Just b1, Just b2, Just pl, Just cf) = S.splitAccountz xz
+  let (Just b1, Just b2, Just pl, Just cf) = S.splitAccount xz
 
   let b1j = S.recToJSON $ b1 ^. rec
   let b1jMod = T.replace "34.0" "-57.58" b1j
@@ -582,20 +582,20 @@ main = do
   let pz = xz & balanceSheetBegin .~ Nothing
   -- print "pz = "; print pz
 
-  let jz = S.accountzToJson pz
+  let jz = S.accountToJson pz
   -- print "pz json ="; print jz
 
   -- let gz = T.replace "cashFlow" "csahFl" jz
 
-  qCheck "Err " $ (S.jsonToAccountz $ T.replace "cashFlow" "csahFl" $ jz)=~ Nothing
-  qCheck "Err " $ (S.jsonToAccountz $ T.replace "Fcfd" "FcFd" $ jz) =~ Nothing
-  qCheck "Err " $ ((S.jsonToAccountz $ T.replace "Fcfd" "Fcfe" $ jz) >>= \x -> x !^> Fcfe) =~ Just 15.89
+  qCheck "Err " $ (S.jsonToAccount $ T.replace "cashFlow" "csahFl" $ jz)=~ Nothing
+  qCheck "Err " $ (S.jsonToAccount $ T.replace "Fcfd" "FcFd" $ jz) =~ Nothing
+  qCheck "Err " $ ((S.jsonToAccount $ T.replace "Fcfd" "Fcfe" $ jz) >>= \x -> x !^> Fcfe) =~ Just 15.89
 
-  qCheck "Err " $ ((S.jsonToAccountz $ T.replace "3.58" "-8.95" $ jz) >>= \x -> x !^> Pbitda) =~ Just (-8.95)
-  qCheck "Err " $ (S.jsonToAccountz $ T.replace "3.58" "-8.9x5" $ jz) =~ Nothing
+  qCheck "Err " $ ((S.jsonToAccount $ T.replace "3.58" "-8.95" $ jz) >>= \x -> x !^> Pbitda) =~ Just (-8.95)
+  qCheck "Err " $ (S.jsonToAccount $ T.replace "3.58" "-8.9x5" $ jz) =~ Nothing
   qCheck "Err " $ pz ^. balanceSheetBegin == Nothing
 
-  -- print $ "Equality of records / accountz etc"
+  -- print $ "Equality of records / account etc"
 
   let rb = Hm.fromList [(Cash, 10.23), (CurrentAdvances, 56.25), (AccountPayables, 0.0)] :: S.BsMap
   let tb = Hm.fromList [(Cash, 10.23), (CurrentAdvances, 56.25)] :: S.BsMap
@@ -637,7 +637,7 @@ main = do
   let xz = pz & dateBegin .~ (let Just x = S.getEOMonth "2018-05-15" in x)
   qCheck "Err " $ pz /~ xz
 
-  let (bBg, Just bEd, Just pl, Just cf) = S.splitAccountz xz
+  let (bBg, Just bEd, Just pl, Just cf) = S.splitAccount xz
 
   qCheck "Err " $ bBg =~ Nothing
 
@@ -691,14 +691,14 @@ main = do
 
   -- print $ "cz = "; print $ cz
 
-  -- print $ "cz = "; print $ S.cleanAccountz cz
+  -- print $ "cz = "; print $ S.cleanAccount cz
 
 
 
-  let Just xz = S.jsonToAccountz "{\"dateBegin\":\"2007-03-31\",\"dateEnd\":\"2008-03-31\",\"balanceSheetBegin\":null,\"balanceSheetEnd\":{\"OtherCurrentLiabilities\":67620.0,\"RawMaterials\":24220.0,\"AccountReceivables\":11310.0,\"Cash\":23970.0,\"PlantPropertyEquipment\":108310.0,\"LongTermLoans\":62810.0,\"CommonStock\":3860.0,\"LongTermInvestmentsMv\":48080.0,\"AccumulatedDepreciation\":54440.0,\"RetainedEarnings\":74540.0,\"OtherLongTermAssets\":-3910.0,\"WorkInProgress\":50650.0,\"CurrentInvestmentsMv\":49100.0,\"CurrentPayables\":48470.0},\"profitLoss\":{\"Pbitda\":26580.0,\"OperatingRevenue\":285380.0,\"OtherExpenses\":20704.0,\"Depreciation\":6520.0,\"Interest\":4260.0,\"CostMaterial\":183748.0,\"DirectExpenses\":15528.0,\"Pbt\":25760.0,\"Pat\":20290.0,\"OtherIncome\":9960.0,\"Salaries\":12940.0,\"TaxesCurrent\":5409.6},\"cashFlow\":{\"ChgInvestments\":-8150.0,\"InvestmentsCapDevp\":2090.0,\"CfInvestmentInterest\":1260.0,\"CfInvestmentDividends\":1440.0,\"DebtRepay\":-28310.0,\"OtherCfInvestments\":3940.0,\"CashFlowOperations\":61650.0,\"InterestFin\":-5670.0,\"InvestmentsLoans\":-530.0,\"OtherCfFinancing\":19700.0,\"DebtIssue\":32330.0,\"InvestmentsPpe\":-50360.0,\"Dividends\":-6750.0,\"AcqEquityAssets\":-6940.0}}" 
+  let Just xz = S.jsonToAccount "{\"dateBegin\":\"2007-03-31\",\"dateEnd\":\"2008-03-31\",\"balanceSheetBegin\":null,\"balanceSheetEnd\":{\"OtherCurrentLiabilities\":67620.0,\"RawMaterials\":24220.0,\"AccountReceivables\":11310.0,\"Cash\":23970.0,\"PlantPropertyEquipment\":108310.0,\"LongTermLoans\":62810.0,\"CommonStock\":3860.0,\"LongTermInvestmentsMv\":48080.0,\"AccumulatedDepreciation\":54440.0,\"RetainedEarnings\":74540.0,\"OtherLongTermAssets\":-3910.0,\"WorkInProgress\":50650.0,\"CurrentInvestmentsMv\":49100.0,\"CurrentPayables\":48470.0},\"profitLoss\":{\"Pbitda\":26580.0,\"OperatingRevenue\":285380.0,\"OtherExpenses\":20704.0,\"Depreciation\":6520.0,\"Interest\":4260.0,\"CostMaterial\":183748.0,\"DirectExpenses\":15528.0,\"Pbt\":25760.0,\"Pat\":20290.0,\"OtherIncome\":9960.0,\"Salaries\":12940.0,\"TaxesCurrent\":5409.6},\"cashFlow\":{\"ChgInvestments\":-8150.0,\"InvestmentsCapDevp\":2090.0,\"CfInvestmentInterest\":1260.0,\"CfInvestmentDividends\":1440.0,\"DebtRepay\":-28310.0,\"OtherCfInvestments\":3940.0,\"CashFlowOperations\":61650.0,\"InterestFin\":-5670.0,\"InvestmentsLoans\":-530.0,\"OtherCfFinancing\":19700.0,\"DebtIssue\":32330.0,\"InvestmentsPpe\":-50360.0,\"Dividends\":-6750.0,\"AcqEquityAssets\":-6940.0}}" 
 
 
-  let Just cz = S.jsonToAccountz "{\"dateBegin\":\"2008-03-31\",\"dateEnd\":\"2009-03-31\",\"balanceSheetBegin\":{\"OtherCurrentLiabilities\":67620.0,\"RawMaterials\":24220.0,\"AccountReceivables\":11310.0,\"Cash\":23970.0,\"PlantPropertyEquipment\":108310.0,\"LongTermLoans\":62810.0,\"CommonStock\":3860.0,\"LongTermInvestmentsMv\":48080.0,\"AccumulatedDepreciation\":54440.0,\"RetainedEarnings\":74540.0,\"OtherLongTermAssets\":-3910.0,\"WorkInProgress\":50650.0,\"CurrentInvestmentsMv\":49100.0,\"CurrentPayables\":48470.0},\"balanceSheetEnd\":{\"OtherCurrentLiabilities\":70860.0,\"RawMaterials\":22300.0,\"AccountReceivables\":12060.0,\"Cash\":11420.0,\"PlantPropertyEquipment\":139050.0,\"LongTermLoans\":131660.0,\"CommonStock\":5140.0,\"LongTermInvestmentsMv\":61080.0,\"AccumulatedDepreciation\":62600.0,\"RetainedEarnings\":117160.0,\"OtherLongTermAssets\":-11430.0,\"WorkInProgress\":69470.0,\"CurrentInvestmentsMv\":129680.0,\"CurrentPayables\":46200.0},\"profitLoss\":{\"Pbitda\":11560.0,\"OperatingRevenue\":251500.0,\"OtherExpenses\":21594.6,\"Depreciation\":8750.0,\"Interest\":8110.0,\"CostMaterial\":177555.6,\"DirectExpenses\":16795.8,\"Pbt\":10140.0,\"Pat\":10010.0,\"OtherIncome\":15430.0,\"Salaries\":14396.400000000001,\"TaxesCurrent\":101.4},\"cashFlow\":{\"ChgInvestments\":15620.0,\"CfInvestmentInterest\":1370.0,\"CfInvestmentDividends\":4580.0,\"StockSales\":41100.0,\"DebtRepay\":-31790.0,\"OtherCfInvestments\":-1470.0,\"CashFlowOperations\":12840.0,\"InterestFin\":1210.0,\"DebtIssue\":76960.0,\"InvestmentsPpe\":-124430.0,\"Dividends\":-6420.0,\"AcqEquityAssets\":-1510.0}}"
+  let Just cz = S.jsonToAccount "{\"dateBegin\":\"2008-03-31\",\"dateEnd\":\"2009-03-31\",\"balanceSheetBegin\":{\"OtherCurrentLiabilities\":67620.0,\"RawMaterials\":24220.0,\"AccountReceivables\":11310.0,\"Cash\":23970.0,\"PlantPropertyEquipment\":108310.0,\"LongTermLoans\":62810.0,\"CommonStock\":3860.0,\"LongTermInvestmentsMv\":48080.0,\"AccumulatedDepreciation\":54440.0,\"RetainedEarnings\":74540.0,\"OtherLongTermAssets\":-3910.0,\"WorkInProgress\":50650.0,\"CurrentInvestmentsMv\":49100.0,\"CurrentPayables\":48470.0},\"balanceSheetEnd\":{\"OtherCurrentLiabilities\":70860.0,\"RawMaterials\":22300.0,\"AccountReceivables\":12060.0,\"Cash\":11420.0,\"PlantPropertyEquipment\":139050.0,\"LongTermLoans\":131660.0,\"CommonStock\":5140.0,\"LongTermInvestmentsMv\":61080.0,\"AccumulatedDepreciation\":62600.0,\"RetainedEarnings\":117160.0,\"OtherLongTermAssets\":-11430.0,\"WorkInProgress\":69470.0,\"CurrentInvestmentsMv\":129680.0,\"CurrentPayables\":46200.0},\"profitLoss\":{\"Pbitda\":11560.0,\"OperatingRevenue\":251500.0,\"OtherExpenses\":21594.6,\"Depreciation\":8750.0,\"Interest\":8110.0,\"CostMaterial\":177555.6,\"DirectExpenses\":16795.8,\"Pbt\":10140.0,\"Pat\":10010.0,\"OtherIncome\":15430.0,\"Salaries\":14396.400000000001,\"TaxesCurrent\":101.4},\"cashFlow\":{\"ChgInvestments\":15620.0,\"CfInvestmentInterest\":1370.0,\"CfInvestmentDividends\":4580.0,\"StockSales\":41100.0,\"DebtRepay\":-31790.0,\"OtherCfInvestments\":-1470.0,\"CashFlowOperations\":12840.0,\"InterestFin\":1210.0,\"DebtIssue\":76960.0,\"InvestmentsPpe\":-124430.0,\"Dividends\":-6420.0,\"AcqEquityAssets\":-1510.0}}"
 
   let Just bs0 = cz ^. balanceSheetEnd
 
@@ -719,8 +719,20 @@ main = do
   qCheck "Err " $ bs1 ! RetainedEarnings =~ 116660
   qCheck "Err " $ bs1 ! InterestPayable =~ 300
 
+  let Just bz = (cz & balanceSheetEnd ?~ bs1 `S.transactSeries` [
+          (LongTermLoans, CurrentPayables, 200.2578978459)
+        , (CurrentPayables, CurrentTaxPayables, 2.578914584)
+        , (RetainedEarnings, AccumulatedDepreciation, 3.000000008)
+
+        ]) !^% (Fcfe, 0.0) >>= (!^% (Pat, 0.0)) >>= (!^% (CommonStock, 0.0))
+
+  print $ "bz = "; print $ bz
+
+  let cz = S.cleanAccount bz
+
   print $ "cz = "; print $ cz
 
+  qCheck "cleaner" $ cz !>> LongTermLoans == Just 132360.26
 
 
   putStrLn "Bye"
