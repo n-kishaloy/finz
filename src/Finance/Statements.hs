@@ -32,7 +32,9 @@ module Finance.Statements
 , Company (..), HasCode (..), HasAffiliated (..), HasConsolidated (..)
 , HasDocs (..), HasSharePrices (..), HasRate (..), HasBeta (..)
 , Param (..), HasPU (..), HasPW (..), HasPE (..), HasPD (..)
-, eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec, cleanRec, cleanAccount
+, eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec
+, cleanRecord, cleanAccount, cleanNSetAccount, cleanNSetAccountVec
+, sortAccountVec, sortCompanyDocs, sortCheckCompany
 , balShBegin, balShEnd, profLoss, cashFl, mkAccount, splitAccount
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
 , BsMap, PlMap, CfMap
@@ -40,12 +42,12 @@ module Finance.Statements
 , HasDatez (..), HasDateBegin (..), HasDateEnd (..), HasBalanceSheetBegin (..)
 , HasBalanceSheetEnd (..), HasProfitLoss (..), HasCashFlow (..)
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
-, HasChecker(..), accountToJson, jsonToAccount
+, HasChecker(..), accountToJson, jsonToAccount, companyToJson, jsonToCompany
 , FinType, FinStat
 , setBsMap, setPlMap, setCfMap, checkBsMap, checkPlMap, checkCfMap
 , getEOMonth
 , credit, debit, transact, transactSeries
-, accountVecCheck
+, checkCompany, setCompany
 ) where
 
 import GHC.Generics (Generic)
@@ -61,23 +63,23 @@ import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 
 import qualified Data.Vector as V
+import Data.Vector.Algorithms.Merge (sortBy)
 import Data.Vector ((!))
 
 import Data.List (foldl')
 import qualified Data.Aeson as As
 import Data.Scientific (toRealFloat)
 
-import Numeric.Utils (dround)
-
 import Data.Approx
 
-import Debug.Trace (trace, traceM)
+-- import Debug.Trace (trace, traceM)
 
 import Control.Monad (forM)
 import Control.Lens
+import Data.Ord (comparing)
 -- import Control.Lens.TH
 
-debug = flip trace
+-- debug = flip trace
 
 
 newtype Checker = Checker { checkerStatuz :: Int } deriving (Show)
@@ -578,12 +580,12 @@ prnx y =
 
 instance Approx Account where
   x =~ y = 
-    x ^. dateBegin          ==            y ^. dateBegin          &&
-    x ^. dateEnd            ==            y ^. dateEnd            &&
-    x ^. balanceSheetBegin  `maybeEqlRec` y ^. balanceSheetBegin  &&
-    x ^. balanceSheetEnd    `maybeEqlRec` y ^. balanceSheetEnd    &&
-    x ^. profitLoss         `maybeEqlRec` y ^. profitLoss         &&
-    x ^. cashFlow           `maybeEqlRec` y ^. cashFlow
+    (x ^. dateBegin)          ==            (y ^. dateBegin)          &&
+    (x ^. dateEnd)            ==            (y ^. dateEnd)            &&
+    (x ^. balanceSheetBegin)  `maybeEqlRec` (y ^. balanceSheetBegin)  &&
+    (x ^. balanceSheetEnd)    `maybeEqlRec` (y ^. balanceSheetEnd)    &&
+    (x ^. profitLoss)         `maybeEqlRec` (y ^. profitLoss)         &&
+    (x ^. cashFlow)           `maybeEqlRec` (y ^. cashFlow)
     
 
 instance GetAccount BsTyp where
@@ -684,18 +686,17 @@ mkAccount bsBeg bsEnd (Just pl) cf =
 splitAccount :: Account -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
 splitAccount x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
 
--- |@cleanRec mp = Remove all 0 value items@
-cleanRec :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double
-cleanRec = Hm.fromList . filter ((/=0.0).snd) . (second (dround 2) <$>) . Hm.toList
+-- |@cleanRecord mp = Remove all 0 value items@
+cleanRecord :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double
+cleanRecord = Hm.fromList . filter ((/=0.0).snd) . (second (fromInteger.round) <$>) . Hm.toList
 
 -- |@cleanAccount ac = Clean all items in Account from the HashMaps@
 cleanAccount :: Account -> Account
 cleanAccount ac = Account (ac ^. dateBegin) (ac ^. dateEnd) bB bE pl cf where
-  bB  = cleaner $ ac ^. balanceSheetBegin 
-  bE  = cleaner $ ac ^. balanceSheetEnd 
-  pl  = cleaner $ ac ^. profitLoss 
-  cf  = cleaner $ ac ^. cashFlow 
-  cleaner x = cleanRec <$> x
+  bB  = cleanRecord <$> ac ^. balanceSheetBegin 
+  bE  = cleanRecord <$> ac ^. balanceSheetEnd 
+  pl  = cleanRecord <$> ac ^. profitLoss 
+  cf  = cleanRecord <$> ac ^. cashFlow 
 
 {-|
 Convert Account to JSON. Typical JSON representation looks as below
@@ -720,27 +721,25 @@ accountToJson x =
   dend = T.concat["\"dateEnd\":\"", T.pack $ show (x ^. dateEnd),"\""]
 
   b1 = x ^. balanceSheetBegin; b1J = T.concat ["\"balanceSheetBegin\":",b1x]
-  b1x = case b1 of Nothing -> "null"; Just b1q -> recToJSON b1q
+  b1x = maybe "null" recToJSON b1
 
   b2 = x ^. balanceSheetEnd; b2J = T.concat ["\"balanceSheetEnd\":",b2x]
-  b2x = case b2 of Nothing -> "null"; Just b2q -> recToJSON b2q
+  b2x = maybe "null" recToJSON b2
 
   pl = x ^. profitLoss; plJ = T.concat ["\"profitLoss\":",plx]
-  plx = case pl of Nothing -> "null"; Just plq -> recToJSON plq
+  plx = maybe "null" recToJSON pl
 
   cf = x ^. cashFlow; cfJ = T.concat ["\"cashFlow\":",cfx]
-  cfx = case cf of Nothing -> "null"; Just cfq -> recToJSON cfq
+  cfx = maybe "null" recToJSON cf
 
--- |Convert JSON to Account
-jsonToAccount :: Text -> Maybe Account
-jsonToAccount s =  do
-  let 
+jAcc :: As.Object -> Maybe Account
+jAcc rz = do
+  let
     parseObj :: (GetAccount a, FinType a) => As.Value -> Maybe (Maybe (Hm.HashMap a Double))
     parseObj (As.Object x) = Just <$> jRec x 
     parseObj As.Null = Just Nothing
     parseObj _ = Nothing
 
-  rz <- As.decodeStrict (encodeUtf8 s) :: Maybe As.Object
   (As.String dB) <- Hm.lookup "dateBegin" rz; dBeg <- getEOMonth dB
   (As.String dE) <- Hm.lookup "dateEnd" rz; dEnd <- getEOMonth dE
   bsB <- Hm.lookup "balanceSheetBegin" rz >>= parseObj 
@@ -749,6 +748,10 @@ jsonToAccount s =  do
   cfX <- Hm.lookup "cashFlow" rz >>= parseObj 
 
   return $ Account dBeg dEnd bsB bsE plX cfX
+
+-- |Convert JSON to Account
+jsonToAccount :: Text -> Maybe Account
+jsonToAccount s = As.decodeStrict (encodeUtf8 s) >>= jAcc
 
 getEOMonth :: Text -> Maybe Day
 getEOMonth x = do
@@ -815,75 +818,43 @@ data Company = Company
 
 makeFields ''Company
 
-{-|@calcElem x h = Calculate and set the derived items in statements@
+instance Approx Company where
+  x =~ y =
+    (x ^. code)         =~            (y ^.code)          &&
+    (x ^. consolidated) ==            (y ^. consolidated) &&
+    (x ^. docs)         =~            (y ^. docs)        
 
-The calulated elements includes Current Assets, Assets, Equity, 
--}
-calcElem :: FinType a=>[(a,[a],[a])]->Hm.HashMap a Double -> Hm.HashMap a Double
-calcElem [] h = h
-calcElem ((z,y0,y1):xs) h = calcElem xs (gv z y1 y0 h) where
-  gv :: FinType a => a -> [a]-> [a]-> Hm.HashMap a Double ->Hm.HashMap a Double
-  gv k ad sb mp = Hm.insert k (adder ad - adder sb) mp where
-    adder = foldl' (\y w -> y + Hm.lookupDefault 0.0 w mp) 0.0
+companyToJson :: Company -> Text 
+companyToJson cp = 
+  T.concat 
+    [ "{"
+    ,"\"code\":\"",cp ^. code,"\""
+    , ",\"affiliated\":null"
+    , ",\"consolidated\":",if cp ^.consolidated then "true," else "false,"
+    , "\"docs\":", T.replace "}{" "},{" $ T.concat (("["::Text):(accountToJson <$> V.toList (cp ^. docs))++["]"::Text])
+    , ",\"shareprices\":null"
+    , ",\"rate\":null"
+    , ",\"beta\":null"
+    , "}"
+    ]
 
-{-|@setBsMap bs = Evaluate and Set BsMap@
+jsonToCompany :: Text -> Maybe Company
+jsonToCompany s = do
+  rz <- As.decodeStrict (encodeUtf8 s) :: Maybe (Hm.HashMap Text As.Value)
+  (As.String cd) <- Hm.lookup "code" rz
+  (As.Bool cns) <- Hm.lookup "consolidated" rz
 
-The BsMap is evaluated as well as populated for calculated items
-like CurrentAssets, LongTermAssets, Assets, Equity etc. If those items are 
-already present, then they are updated. 
+  (As.Array dtz) <- Hm.lookup "docs" rz
+  dz <- traverse jAcc ((\(As.Object x) -> x) <$> dtz) :: Maybe (V.Vector Account)
 
-At the end the checkBsMap run to ensure consistency in the Balance Sheet. Returns 
-__@Nothing@__ if inconsistant.
--}
-setBsMap :: BsMap -> Maybe BsMap
-setBsMap bs = undefined
+  let
+    aff = Nothing 
+    rat = Nothing 
+    shp = Nothing 
+    bet = Nothing 
 
-{-|@checkBsMap bs = Evaluate consistency of BsMap@
+  return (Company cd aff cns dz shp rat bet)
 
-In case calculated items has not been set then the function internally 
-sets them. 
--}
-checkBsMap :: BsMap -> Bool
-checkBsMap bs = True
-
-{-|@setPlMap pl = Evaluate and Set PlMap@
-
-The PlMap is evaluated as well as populated for calculated items like Pbitda, 
-Pbit etc. If those items are already present, then they are updated. 
-
-At the end the checkPlMap run to ensure consistency in the Profit Loss Statement. 
-Returns __@Nothing@__ if inconsistant.
--}
-setPlMap :: PlMap -> Maybe PlMap
-setPlMap pl = undefined
-
-{-|@checkPlMap pl = Evaluate consistency of PlMap@
-
-In case calculated items has not been set then the function internally 
-sets them. 
--}
-checkPlMap :: PlMap -> Bool
-checkPlMap pl = True
-
-{-|@setCfMap cf = Evaluate and Set CfMap@
-
-The CfMap is evaluated as well as populated for calculated items
-like CashFlowOperations, Fcff, Fcfd etc. If those items are 
-already present, then they are updated. 
-
-At the end the checkCfMap run to ensure consistency in the Cash Flow Statements. 
-Returns __@Nothing@__ if inconsistant.
--}
-setCfMap :: CfMap -> Maybe CfMap
-setCfMap cf = undefined
-
-{-|@checkCfMap cf = Evaluate consistency of CfMap@
-
-In case calculated items has not been set then the function internally 
-sets them. 
--}
-checkCfMap :: CfMap -> Bool
-checkCfMap cf = True
 
 -- |@debit bs t v = debit value v from entry t in Balance Sheet bs@
 debit :: BsMap -> BsTyp -> Double -> BsMap
@@ -970,6 +941,79 @@ transact bs deb crd val = credit (debit bs deb val) crd val
 transactSeries :: BsMap -> [(BsTyp, BsTyp, Double)] -> BsMap
 transactSeries = foldl' (\y (db,cr,v) -> transact y db cr v)
 
+{-|@calcElem x h = Calculate and set the derived items in statements@
+
+The calulated elements includes Current Assets, Assets, Equity, 
+-}
+calcElem :: FinType a=>[(a,[a],[a])]->Hm.HashMap a Double -> Hm.HashMap a Double
+calcElem [] h = h
+calcElem ((z,y0,y1):xs) h = calcElem xs (gv z y1 y0 h) where
+  gv :: FinType a => a -> [a]-> [a]-> Hm.HashMap a Double ->Hm.HashMap a Double
+  gv k ad sb mp = Hm.insert k (adder ad - adder sb) mp where
+    adder = foldl' (\y w -> y + Hm.lookupDefault 0.0 w mp) 0.0
+
+{-|@setBsMap bs = Evaluate and Set BsMap@
+
+The BsMap is evaluated as well as populated for calculated items
+like CurrentAssets, LongTermAssets, Assets, Equity etc. If those items are 
+already present, then they are updated. 
+
+At the end the checkBsMap run to ensure consistency in the Balance Sheet. Returns 
+__@Nothing@__ if inconsistant.
+-}
+setBsMap :: Maybe BsMap -> Maybe (Maybe BsMap)
+setBsMap Nothing  = Just Nothing 
+setBsMap bs = Just bs
+
+{-|@checkBsMap bs = Evaluate consistency of BsMap@
+
+In case calculated items has not been set then the function internally 
+sets them. 
+-}
+checkBsMap :: BsMap -> Bool
+checkBsMap bs = True
+
+{-|@setPlMap pl = Evaluate and Set PlMap@
+
+The PlMap is evaluated as well as populated for calculated items like Pbitda, 
+Pbit etc. If those items are already present, then they are updated. 
+
+At the end the checkPlMap run to ensure consistency in the Profit Loss Statement. 
+Returns __@Nothing@__ if inconsistant.
+-}
+setPlMap :: Maybe PlMap -> Maybe (Maybe PlMap)
+setPlMap Nothing = Just Nothing 
+setPlMap pl = Just pl
+
+{-|@checkPlMap pl = Evaluate consistency of PlMap@
+
+In case calculated items has not been set then the function internally 
+sets them. 
+-}
+checkPlMap :: PlMap -> Bool
+checkPlMap pl = True
+
+{-|@setCfMap cf = Evaluate and Set CfMap@
+
+The CfMap is evaluated as well as populated for calculated items
+like CashFlowOperations, Fcff, Fcfd etc. If those items are 
+already present, then they are updated. 
+
+At the end the checkCfMap run to ensure consistency in the Cash Flow Statements. 
+Returns __@Nothing@__ if inconsistant.
+-}
+setCfMap :: Maybe CfMap -> Maybe (Maybe CfMap)
+setCfMap Nothing = Just Nothing 
+setCfMap cf = Just cf
+
+{-|@checkCfMap cf = Evaluate consistency of CfMap@
+
+In case calculated items has not been set then the function internally 
+sets them. 
+-}
+checkCfMap :: CfMap -> Bool
+checkCfMap cf = True
+
 -- |Check if two accounts x and y are consective or not
 -- Check that dates and Balanxe Sheets match
 isConsecutiveAccount :: Account -> Account -> Bool
@@ -981,8 +1025,8 @@ isConsecutiveAccount x y =
 -- Basically checking account0.bal_shEnd == account1.bal_shBegin && 
 -- account0.dateEnd == account1.dateBegin && account0.dateEnd /~ None
 -- && account1.dateBegin /~ None
-accountVecCheck :: V.Vector Account -> Bool
-accountVecCheck vx = foldl' f (checkAccount (vx!0)) [0..(length vx - 2)] where
+checkAccountVec :: V.Vector Account -> Bool
+checkAccountVec vx = foldl' f (checkAccount (vx!0)) [0..(length vx - 2)] where
   f y i = y && isConsecutiveAccount (vx!i) (vx!(i+1)) && checkAccount (vx!(i+1))
 
 -- |Check Account for consistency
@@ -1004,12 +1048,55 @@ checkAccount (Account _ _ bB bE pl cf) =
 
 -- |Check connecting Dates & BalanceSheet then all Account
 checkCompany :: Company -> Bool
-checkCompany cp = accountVecCheck (cp ^. docs)
+checkCompany cp = checkAccountVec (cp ^. docs)
+
+setAccount :: Account -> Maybe Account
+setAccount (Account dB dE bB bE pl cf) = do 
+  bB1 <- setBsMap bB 
+  bE1 <- setBsMap bE 
+  pl1 <- setPlMap pl 
+  cf1 <- setCfMap cf 
+  return (Account dB dE bB1 bE1 pl1 cf1)
+
+setAccountVec :: V.Vector Account -> Maybe (V.Vector Account)
+setAccountVec = traverse setAccount
+
+setCompany :: Company -> Maybe Company
+setCompany (Company cd af cn d0 sp rt bt) = do 
+  d1 <- setAccountVec d0
+  d2 <- intpAccount d1
+
+  return (Company cd af cn d2 sp rt bt)
+
+cleanNSetAccount :: Account -> Maybe Account
+cleanNSetAccount = setAccount . cleanAccount
+
+cleanNSetAccountVec :: V.Vector Account -> Maybe (V.Vector Account)
+cleanNSetAccountVec = traverse cleanNSetAccount
 
 -- |Interpolate missing Financial Statements
 intpAccount :: V.Vector Account -> Maybe (V.Vector Account)
-intpAccount va = undefined
+intpAccount v0 = do
+  let v1 = v0 -- TODO: Add your code here
+  traverse cleanNSetAccount v1
 
+-- | Sort Account vector by dateEnd. Note no sanctity check of dates are
+-- performed here. If needed, plz use checkAccounts for check of 
+-- consistency of dates.
+sortAccountVec :: V.Vector Account -> V.Vector Account
+sortAccountVec v = (v!) . snd <$> V.modify (sortBy (comparing fst)) q
+  where q = (\i -> (v!i ^. dateEnd,i)) <$> V.fromList [0..(length v-1)]
+
+sortCompanyDocs :: Company -> Company
+sortCompanyDocs x = x & docs .~ sortAccountVec (x ^. docs)
+
+sortCheckCompany :: Company -> Maybe Company
+sortCheckCompany x = do
+  let v = x & docs .~ sortAccountVec (x ^. docs)
+  if checkCompany v then Just v else Nothing
+
+findFCFF :: Company -> Maybe Company
+findFCFF cp = undefined 
 
 -- |Calculate Beta
 findBeta :: Company -> Either String Company

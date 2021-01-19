@@ -6,24 +6,22 @@
 module Main where
 
 
-import Numeric.Utils (dot,(+^), (-^), (*^), (/^), DVec, dround)
+import Numeric.Utils (dot,(+^), (-^), (*^), (/^))
 import qualified Numeric.Utils as Nu
 import qualified Numeric.Optima as Op
 import Data.Approx ( Approx((=~), (/~)) )
 
-import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 
 import qualified Finance.Base as F
 import qualified Finance.Statements as S
 import qualified Finance.Bonds as B
-import Finance.Statements (HasStatuz(..), HasChk (..), HasShk(..)) -- pollution
+ -- pollution
 import Finance.Statements (BsTyp (..), PlTyp (..), CfTyp (..), GetRecords (..)) 
 import Finance.Statements (GetAccount (..), GetStatement (..)  )
 -- pollution
-import Finance.Statements (HasRec(..), HasBalanceSheetBegin (..), HasBalanceSheetEnd (..), HasDateBegin (..), HasDatez (..))
-import Finance.Statements (BalanceSheet (..), ProfitLoss (..), CashFlow (..))
-import Finance.Statements (eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec)
+import Finance.Statements (HasRec(..), HasBalanceSheetBegin (..), HasBalanceSheetEnd (..), HasDateBegin (..), HasDatez (..), HasDocs (..))
+import Finance.Statements (eqlRec, notEqlRec)
 
 import Data.Time (fromGregorian)
 
@@ -31,10 +29,12 @@ import qualified Data.HashMap.Strict as Hm
 import Data.HashMap.Strict ((!))
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Maybe (isNothing)
 
 import Control.Lens ((^.),(.~),(&),(?~))
 
 import Data.List (foldl')
+
 qTest :: Show a => a -> [Bool] -> IO ()
 qTest nam x = putStrLn $ lJus 30 '.' nam ++" => Tests :"++ rJus 3 ' ' (p+f) ++fl f where
   (p,f)=foldl' (\(u,v) b -> if b then (u+1,v) else (u,v+1)) (0,0) x :: (Int,Int)
@@ -42,7 +42,6 @@ qTest nam x = putStrLn $ lJus 30 '.' nam ++" => Tests :"++ rJus 3 ' ' (p+f) ++fl
   fl z = " => +++++ << FAILED : " ++ show z ++ " >> +++++" 
   lJus n c xr = st ++ replicate (n - length st) c where st = show xr
   rJus n c xr = replicate (n - length st) c ++ st where st = show xr 
-
 
 infix 3 `qCheck`
 qCheck :: Show a => a -> Bool -> IO ()
@@ -257,7 +256,7 @@ main = do
     , bs !!> Cash =~ 24.45
     , bs !!> CurrentAdvances =~ 25.0
     , bs !!> CurrentLoans =~ 44.56
-    , bs !!? CurrentNotesPayable == Nothing
+    , isNothing $ bs !!? CurrentNotesPayable 
     , bs !!? Cash  =~ Just 24.45
     ]
 
@@ -276,7 +275,7 @@ main = do
     [ pl !!> OperatingRevenue =~ 58.35
     , pl !!> Pat =~ 0.0
     , pl !!? OperatingRevenue =~ Just 58.35
-    , pl !!? Pat == Nothing
+    , isNothing $ pl !!? Pat
     ]
 
   let cf = S.CashFlow {
@@ -301,7 +300,7 @@ main = do
     [ cf !!> CashFlowOperations =~ 38.35
     , cf !!> CashFlowInvestments =~ 0.0
     , cf !!? CashFlowOperations =~ Just 38.35
-    , cf !!? CashFlowInvestments == Nothing
+    , isNothing $ cf !!? CashFlowInvestments 
     , cf !!> DisPpe =~ 23.58
     , cf !!> OtherCfInvestments =~ 68.58
     ]
@@ -365,7 +364,7 @@ main = do
     , (xz !^+ (Cash, 2.34)) =~ Nothing
     , (xz `updateBeginItems` [(Cash, 2.34), (AccumulatedDepreciation, 5.67)]) =~ Nothing
     , (xz !^% (Cash, 2.34)) =~ Nothing
-    , (S.balShBegin xz) =~ Nothing
+    , S.balShBegin xz =~ Nothing
     ]
 
   let acz = xz !^~ [
@@ -564,20 +563,20 @@ main = do
   qCheck "Err " $ Hm.lookup Cash b1Rec =~ Just (-57.58)
 
   let b1jMod = T.replace "Cash" "Csah" b1j
-  qCheck "Err " $ (S.jsonToRec b1jMod :: Maybe S.BsMap) == Nothing
+  qCheck "Err " $ isNothing (S.jsonToRec b1jMod :: Maybe S.BsMap) 
 
   let plj = S.recToJSON $ pl ^. rec
   let Just plRec = S.jsonToRec $ T.replace "54.32" "-28.78" plj 
 
   qCheck "Err " $ Hm.lookup Amortization plRec =~ Just (-28.78)
-  qCheck "Err " $ (S.jsonToRec $ T.replace "Pbt" "Ptb" plj :: Maybe S.PlMap) == Nothing
+  qCheck "Err " $ isNothing (S.jsonToRec $ T.replace "Pbt" "Ptb" plj :: Maybe S.PlMap) 
 
   let cfj = S.recToJSON $ cf ^. rec
   let Just cfRec = S.jsonToRec $ T.replace "54.32" "-28.78" cfj 
   
   -- print "cfj"; print $ cfj
   qCheck "Err " $ Hm.lookup CashFlowInvestments cfRec =~ Just 25.0
-  qCheck "Err " $ (S.jsonToRec $ T.replace "Fcff" "Fcfr" cfj :: Maybe S.CfMap) == Nothing
+  qCheck "Err " $ isNothing (S.jsonToRec $ T.replace "Fcff" "Fcfr" cfj :: Maybe S.CfMap) 
 
   let pz = xz & balanceSheetBegin .~ Nothing
   -- print "pz = "; print pz
@@ -587,13 +586,13 @@ main = do
 
   -- let gz = T.replace "cashFlow" "csahFl" jz
 
-  qCheck "Err " $ (S.jsonToAccount $ T.replace "cashFlow" "csahFl" $ jz)=~ Nothing
-  qCheck "Err " $ (S.jsonToAccount $ T.replace "Fcfd" "FcFd" $ jz) =~ Nothing
-  qCheck "Err " $ ((S.jsonToAccount $ T.replace "Fcfd" "Fcfe" $ jz) >>= \x -> x !^> Fcfe) =~ Just 15.89
+  qCheck "Err " $ S.jsonToAccount (T.replace "cashFlow" "csahFl" jz)=~ Nothing
+  qCheck "Err " $ S.jsonToAccount (T.replace "Fcfd" "FcFd" jz) =~ Nothing
+  qCheck "Err " $ (S.jsonToAccount (T.replace "Fcfd" "Fcfe" $ jz) >>= \x -> x !^> Fcfe) =~ Just 15.89
 
-  qCheck "Err " $ ((S.jsonToAccount $ T.replace "3.58" "-8.95" $ jz) >>= \x -> x !^> Pbitda) =~ Just (-8.95)
-  qCheck "Err " $ (S.jsonToAccount $ T.replace "3.58" "-8.9x5" $ jz) =~ Nothing
-  qCheck "Err " $ pz ^. balanceSheetBegin == Nothing
+  qCheck "Err " $ (S.jsonToAccount (T.replace "3.58" "-8.95" $ jz) >>= \x -> x !^> Pbitda) =~ Just (-8.95)
+  qCheck "Err " $ S.jsonToAccount (T.replace "3.58" "-8.9x5" $ jz) =~ Nothing
+  qCheck "Err " $ isNothing (pz ^. balanceSheetBegin) 
 
   -- print $ "Equality of records / account etc"
 
@@ -644,7 +643,7 @@ main = do
   let b1 = bEd
   qCheck "Err " $ b1 =~ bEd
 
-  let b1 = bEd & datez .~ (fromGregorian 2015 03 31)
+  let b1 = bEd & datez .~ fromGregorian 2015 03 31
   qCheck "Err " $ b1 /~ bEd
 
   -- print $ b1
@@ -656,7 +655,7 @@ main = do
 
   let p1 = pl !!+ (Salaries, -5.0)
   qCheck "Err " $ p1 /~ pl
-  let p1 = pl & dateBegin .~ (fromGregorian 2015 03 31)
+  let p1 = pl & dateBegin .~ fromGregorian 2015 03 31
   qCheck "Err " $ p1 /~ pl
 
   let c1 = cf
@@ -664,7 +663,7 @@ main = do
 
   let c1 = cf !!+ (Fcfe, 2.3)
   qCheck "Err " $ c1 /~ cf
-  let c1 = cf & dateBegin .~ (fromGregorian 2015 03 31)
+  let c1 = cf & dateBegin .~ fromGregorian 2015 03 31
   qCheck "Err " $ c1 /~ cf
 
   -- print $ "xz = "; print $ xz
@@ -726,14 +725,29 @@ main = do
 
         ]) !^% (Fcfe, 0.0) >>= (!^% (Pat, 0.0)) >>= (!^% (CommonStock, 0.0))
 
-  print $ "bz = "; print $ bz
-
   let cz = S.cleanAccount bz
 
-  print $ "cz = "; print $ cz
+  qCheck "cleaner" $ cz !>> LongTermLoans == Just 132360
 
-  qCheck "cleaner" $ cz !>> LongTermLoans == Just 132360.26
+  let cz = "{\"code\":\"TATAMOTORS\",\"affiliated\":null,\"consolidated\":true,\"docs\":[{\"dateBegin\":\"2007-03-31\",\"dateEnd\":\"2008-03-31\",\"balanceSheetBegin\":null,\"balanceSheetEnd\":{\"LongTermLoans\":62810.0,\"CurrentPayables\":48470.0,\"RawMaterials\":24220.0,\"Cash\":23970.0,\"OtherLongTermAssets\":-3910.0,\"AccountReceivables\":11310.0,\"PlantPropertyEquipment\":108310.0,\"LongTermInvestmentsMv\":48080.0,\"OtherCurrentLiabilities\":67620.0,\"AccumulatedDepreciation\":54440.0,\"WorkInProgress\":50650.0,\"CommonStock\":3860.0,\"CurrentInvestmentsMv\":49100.0,\"RetainedEarnings\":74540.0},\"profitLoss\":{\"Pbitda\":26580.0,\"OperatingRevenue\":285380.0,\"OtherExpenses\":20704.0,\"Depreciation\":6520.0,\"Interest\":4260.0,\"CostMaterial\":183748.0,\"DirectExpenses\":15528.0,\"Pbt\":25760.0,\"Pat\":20290.0,\"OtherIncome\":9960.0,\"Salaries\":12940.0,\"TaxesCurrent\":5409.6},\"cashFlow\":{\"ChgInvestments\":-8150.0,\"InvestmentsCapDevp\":2090.0,\"CfInvestmentInterest\":1260.0,\"CfInvestmentDividends\":1440.0,\"DebtRepay\":-28310.0,\"OtherCfInvestments\":3940.0,\"CashFlowOperations\":61650.0,\"InterestFin\":-5670.0,\"InvestmentsLoans\":-530.0,\"OtherCfFinancing\":19700.0,\"DebtIssue\":32330.0,\"InvestmentsPpe\":-50360.0,\"Dividends\":-6750.0,\"AcqEquityAssets\":-6940.0}},{\"dateBegin\":\"2008-03-31\",\"dateEnd\":\"2009-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":62810.0,\"CurrentPayables\":48470.0,\"RawMaterials\":24220.0,\"Cash\":23970.0,\"OtherLongTermAssets\":-3910.0,\"AccountReceivables\":11310.0,\"PlantPropertyEquipment\":108310.0,\"LongTermInvestmentsMv\":48080.0,\"OtherCurrentLiabilities\":67620.0,\"AccumulatedDepreciation\":54440.0,\"WorkInProgress\":50650.0,\"CommonStock\":3860.0,\"CurrentInvestmentsMv\":49100.0,\"RetainedEarnings\":74540.0},\"balanceSheetEnd\":{\"LongTermLoans\":131660.0,\"CurrentPayables\":46200.0,\"RawMaterials\":22300.0,\"Cash\":11420.0,\"OtherLongTermAssets\":-11430.0,\"AccountReceivables\":12060.0,\"PlantPropertyEquipment\":139050.0,\"LongTermInvestmentsMv\":61080.0,\"OtherCurrentLiabilities\":70860.0,\"AccumulatedDepreciation\":62600.0,\"WorkInProgress\":69470.0,\"CommonStock\":5140.0,\"CurrentInvestmentsMv\":129680.0,\"RetainedEarnings\":117160.0},\"profitLoss\":{\"Pbitda\":11560.0,\"OperatingRevenue\":251500.0,\"OtherExpenses\":21594.6,\"Depreciation\":8750.0,\"Interest\":8110.0,\"CostMaterial\":177555.6,\"DirectExpenses\":16795.8,\"Pbt\":10140.0,\"Pat\":10010.0,\"OtherIncome\":15430.0,\"Salaries\":14396.400000000001,\"TaxesCurrent\":101.4},\"cashFlow\":{\"ChgInvestments\":15620.0,\"CfInvestmentInterest\":1370.0,\"CfInvestmentDividends\":4580.0,\"StockSales\":41100.0,\"DebtRepay\":-31790.0,\"OtherCfInvestments\":-1470.0,\"CashFlowOperations\":12840.0,\"InterestFin\":1210.0,\"DebtIssue\":76960.0,\"InvestmentsPpe\":-124430.0,\"Dividends\":-6420.0,\"AcqEquityAssets\":-1510.0}},{\"dateBegin\":\"2009-03-31\",\"dateEnd\":\"2010-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":131660.0,\"CurrentPayables\":46200.0,\"RawMaterials\":22300.0,\"Cash\":11420.0,\"OtherLongTermAssets\":-11430.0,\"AccountReceivables\":12060.0,\"PlantPropertyEquipment\":139050.0,\"LongTermInvestmentsMv\":61080.0,\"OtherCurrentLiabilities\":70860.0,\"AccumulatedDepreciation\":62600.0,\"WorkInProgress\":69470.0,\"CommonStock\":5140.0,\"CurrentInvestmentsMv\":129680.0,\"RetainedEarnings\":117160.0},\"balanceSheetEnd\":{\"LongTermLoans\":165950.0,\"CurrentPayables\":61160.0,\"RawMaterials\":29360.0,\"Cash\":17530.0,\"OtherLongTermAssets\":-6300.0,\"AccountReceivables\":23920.0,\"PlantPropertyEquipment\":184170.0,\"LongTermInvestmentsMv\":52170.0,\"OtherCurrentLiabilities\":127650.0,\"AccumulatedDepreciation\":72130.0,\"WorkInProgress\":52320.0,\"CommonStock\":5710.0,\"CurrentInvestmentsMv\":223370.0,\"RetainedEarnings\":143950.0},\"profitLoss\":{\"Pbitda\":25450.0,\"OperatingRevenue\":350250.0,\"OtherExpenses\":38974.8,\"Depreciation\":10340.0,\"Interest\":12460.0,\"CostMaterial\":224105.09999999998,\"DirectExpenses\":22735.300000000003,\"Pbt\":28300.0,\"Pat\":22400.0,\"OtherIncome\":25640.0,\"Salaries\":16239.5,\"TaxesCurrent\":5943.0},\"cashFlow\":{\"ChgInvestments\":16250.0,\"InvestmentsCapDevp\":160.0,\"CfInvestmentInterest\":1360.0,\"CfInvestmentDividends\":590.0,\"StockSales\":17940.0,\"DebtRepay\":-95110.0,\"OtherCfInvestments\":-6620.0,\"CashFlowOperations\":64000.0,\"InterestFin\":6500.0,\"OtherCfFinancing\":-2030.0,\"DebtIssue\":131490.0,\"InvestmentsPpe\":-129300.0,\"Dividends\":-3450.0,\"AcqEquityAssets\":-1300.0}},{\"dateBegin\":\"2010-03-31\",\"dateEnd\":\"2011-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":165950.0,\"CurrentPayables\":61160.0,\"RawMaterials\":29360.0,\"Cash\":17530.0,\"OtherLongTermAssets\":-6300.0,\"AccountReceivables\":23920.0,\"PlantPropertyEquipment\":184170.0,\"LongTermInvestmentsMv\":52170.0,\"OtherCurrentLiabilities\":127650.0,\"AccumulatedDepreciation\":72130.0,\"WorkInProgress\":52320.0,\"CommonStock\":5710.0,\"CurrentInvestmentsMv\":223370.0,\"RetainedEarnings\":143950.0},\"balanceSheetEnd\":{\"LongTermLoans\":159910.0,\"CurrentPayables\":43770.0,\"RawMaterials\":38910.0,\"Cash\":24290.0,\"OtherLongTermAssets\":27790.0,\"AccountReceivables\":26030.0,\"PlantPropertyEquipment\":218830.0,\"LongTermInvestmentsMv\":26470.0,\"OtherCurrentLiabilities\":138130.0,\"AccumulatedDepreciation\":84660.0,\"WorkInProgress\":37990.0,\"CommonStock\":6350.0,\"CurrentInvestmentsMv\":226240.0,\"RetainedEarnings\":193760.0},\"profitLoss\":{\"Pbitda\":46630.0,\"OperatingRevenue\":470880.0,\"OtherExpenses\":25455.6,\"Depreciation\":13610.0,\"Interest\":13840.0,\"CostMaterial\":305467.2,\"DirectExpenses\":25455.6,\"Pbt\":21970.0,\"Pat\":18120.0,\"OtherIncome\":2780.0,\"Salaries\":21213.0,\"TaxesCurrent\":3954.6},\"cashFlow\":{\"ChgInvestments\":3320.0,\"InvestmentsCapDevp\":340.0,\"CfInvestmentInterest\":2020.0,\"CfInvestmentDividends\":1810.0,\"StockSales\":32530.0,\"DebtRepay\":-70400.0,\"OtherCfInvestments\":-440.0,\"CashFlowOperations\":15060.0,\"InterestFin\":-8680.0,\"InvestmentsLoans\":-1740.0,\"OtherCfFinancing\":-3270.0,\"DebtIssue\":76210.0,\"InvestmentsPpe\":-28450.0,\"Dividends\":-9900.0,\"AcqEquityAssets\":-2040.0}},{\"dateBegin\":\"2012-03-31\",\"dateEnd\":\"2013-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":158810.0,\"CurrentPayables\":56150.0,\"RawMaterials\":45880.0,\"Cash\":18410.0,\"OtherLongTermAssets\":25980.0,\"AccountReceivables\":27080.0,\"PlantPropertyEquipment\":249850.0,\"LongTermInvestmentsMv\":29760.0,\"OtherCurrentLiabilities\":133980.0,\"AccumulatedDepreciation\":99660.0,\"WorkInProgress\":40370.0,\"CommonStock\":6350.0,\"CurrentInvestmentsMv\":204940.0,\"RetainedEarnings\":187330.0},\"balanceSheetEnd\":{\"LongTermLoans\":167990.0,\"CurrentPayables\":46980.0,\"RawMaterials\":44550.0,\"Cash\":4630.0,\"OtherLongTermAssets\":20690.0,\"AccountReceivables\":18180.0,\"PlantPropertyEquipment\":270670.0,\"LongTermInvestmentsMv\":32370.0,\"OtherCurrentLiabilities\":115530.0,\"AccumulatedDepreciation\":116110.0,\"WorkInProgress\":47530.0,\"CommonStock\":6380.0,\"CurrentInvestmentsMv\":199340.0,\"RetainedEarnings\":184970.0},\"profitLoss\":{\"Pbitda\":15720.0,\"OperatingRevenue\":447660.0,\"OtherExpenses\":34554.4,\"Depreciation\":18180.0,\"Interest\":13880.0,\"CostMaterial\":319628.2,\"DirectExpenses\":34554.4,\"Pbt\":1750.0,\"Pat\":3020.0,\"OtherIncome\":18080.0,\"Salaries\":25915.8,\"TaxesCurrent\":-1277.5},\"cashFlow\":{\"ChgInvestments\":-3050.0,\"InvestmentsCapDevp\":440.0,\"CfInvestmentInterest\":4040.0,\"CfInvestmentDividends\":16610.0,\"DebtRepay\":-123650.0,\"OtherCfInvestments\":7460.0,\"CashFlowOperations\":22580.0,\"InterestFin\":-18090.0,\"InvestmentsLoans\":-1940.0,\"OtherCfFinancing\":-28490.0,\"DebtIssue\":144370.0,\"InvestmentsPpe\":-13020.0,\"Dividends\":-14600.0,\"AcqEquityAssets\":210.0}},{\"dateBegin\":\"2013-03-31\",\"dateEnd\":\"2014-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":167990.0,\"CurrentPayables\":46980.0,\"RawMaterials\":44550.0,\"Cash\":4630.0,\"OtherLongTermAssets\":20690.0,\"AccountReceivables\":18180.0,\"PlantPropertyEquipment\":270670.0,\"LongTermInvestmentsMv\":32370.0,\"OtherCurrentLiabilities\":115530.0,\"AccumulatedDepreciation\":116110.0,\"WorkInProgress\":47530.0,\"CommonStock\":6380.0,\"CurrentInvestmentsMv\":199340.0,\"RetainedEarnings\":184970.0},\"balanceSheetEnd\":{\"LongTermLoans\":150530.0,\"CurrentPayables\":52650.0,\"RawMaterials\":38630.0,\"Cash\":2260.0,\"OtherLongTermAssets\":-8810.0,\"AccountReceivables\":12170.0,\"PlantPropertyEquipment\":287910.0,\"LongTermInvestmentsMv\":52560.0,\"OtherCurrentLiabilities\":102400.0,\"AccumulatedDepreciation\":135510.0,\"WorkInProgress\":63550.0,\"CommonStock\":6440.0,\"CurrentInvestmentsMv\":184580.0,\"RetainedEarnings\":185330.0},\"profitLoss\":{\"Pbitda\":-14350.0,\"OperatingRevenue\":342880.0,\"OtherExpenses\":39295.3,\"Depreciation\":20700.0,\"Interest\":13530.0,\"CostMaterial\":271494.8,\"DirectExpenses\":32150.7,\"Pbt\":-10260.0,\"Pat\":3350.0,\"OtherIncome\":38330.0,\"Salaries\":32150.7,\"TaxesCurrent\":-13645.8},\"cashFlow\":{\"ChgInvestments\":44240.0,\"InvestmentsCapDevp\":-400.0,\"CfInvestmentInterest\":1820.0,\"CfInvestmentDividends\":16030.0,\"DebtRepay\":-109120.0,\"OtherCfInvestments\":2410.0,\"CashFlowOperations\":24630.0,\"InterestFin\":-17500.0,\"InvestmentsLoans\":1520.0,\"OtherCfFinancing\":-11080.0,\"DebtIssue\":93850.0,\"InvestmentsPpe\":-36720.0,\"Dividends\":-6490.0,\"AcqEquityAssets\":-3250.0}},{\"dateBegin\":\"2014-03-31\",\"dateEnd\":\"2015-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":150530.0,\"CurrentPayables\":52650.0,\"RawMaterials\":38630.0,\"Cash\":2260.0,\"OtherLongTermAssets\":-8810.0,\"AccountReceivables\":12170.0,\"PlantPropertyEquipment\":287910.0,\"LongTermInvestmentsMv\":52560.0,\"OtherCurrentLiabilities\":102400.0,\"AccumulatedDepreciation\":135510.0,\"WorkInProgress\":63550.0,\"CommonStock\":6440.0,\"CurrentInvestmentsMv\":184580.0,\"RetainedEarnings\":185330.0},\"balanceSheetEnd\":{\"LongTermLoans\":211340.0,\"CurrentPayables\":54010.0,\"RawMaterials\":48020.0,\"Cash\":9450.0,\"OtherLongTermAssets\":-15820.0,\"AccountReceivables\":11140.0,\"PlantPropertyEquipment\":318140.0,\"LongTermInvestmentsMv\":58520.0,\"OtherCurrentLiabilities\":85450.0,\"AccumulatedDepreciation\":160310.0,\"WorkInProgress\":60410.0,\"CommonStock\":6440.0,\"CurrentInvestmentsMv\":169870.0,\"RetainedEarnings\":142190.0},\"profitLoss\":{\"Pbitda\":-13180.0,\"OperatingRevenue\":363020.0,\"OtherExpenses\":45144.0,\"Depreciation\":26030.0,\"Interest\":16120.0,\"CostMaterial\":278388.0,\"DirectExpenses\":33858.0,\"Pbt\":-39750.0,\"Pat\":-47390.0,\"OtherIncome\":15580.0,\"Salaries\":33858.0,\"TaxesCurrent\":7552.5},\"cashFlow\":{\"ChgInvestments\":18710.0,\"InvestmentsCapDevp\":-50.0,\"CfInvestmentInterest\":800.0,\"CfInvestmentDividends\":16980.0,\"DebtRepay\":-68900.0,\"OtherCfInvestments\":-480.0,\"CashFlowOperations\":-22140.0,\"InterestFin\":-18450.0,\"OtherCfFinancing\":-8010.0,\"DebtIssue\":128170.0,\"InvestmentsPpe\":-31910.0,\"Dividends\":-6490.0,\"AcqEquityAssets\":-1590.0}},{\"dateBegin\":\"2015-03-31\",\"dateEnd\":\"2016-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":211340.0,\"CurrentPayables\":54010.0,\"RawMaterials\":48020.0,\"Cash\":9450.0,\"OtherLongTermAssets\":-15820.0,\"AccountReceivables\":11140.0,\"PlantPropertyEquipment\":318140.0,\"LongTermInvestmentsMv\":58520.0,\"OtherCurrentLiabilities\":85450.0,\"AccumulatedDepreciation\":160310.0,\"WorkInProgress\":60410.0,\"CommonStock\":6440.0,\"CurrentInvestmentsMv\":169870.0,\"RetainedEarnings\":142190.0},\"balanceSheetEnd\":{\"LongTermLoans\":164730.0,\"CurrentPayables\":58700.0,\"RawMaterials\":51180.0,\"Cash\":7880.0,\"OtherLongTermAssets\":-23520.0,\"AccountReceivables\":20460.0,\"PlantPropertyEquipment\":393050.0,\"LongTermInvestmentsMv\":73500.0,\"OtherCurrentLiabilities\":110710.0,\"AccumulatedDepreciation\":182300.0,\"WorkInProgress\":56870.0,\"CommonStock\":6790.0,\"CurrentInvestmentsMv\":169630.0,\"RetainedEarnings\":225830.0},\"profitLoss\":{\"Pbitda\":24520.0,\"OperatingRevenue\":428450.0,\"OtherExpenses\":52512.200000000004,\"Depreciation\":23290.0,\"Interest\":15920.0,\"CostMaterial\":274679.19999999995,\"DirectExpenses\":24236.399999999998,\"Pbt\":-670.0,\"Pat\":-620.0,\"OtherIncome\":14020.0,\"Salaries\":28275.8,\"TaxesCurrent\":-46.900000000000006},\"cashFlow\":{\"ChgInvestments\":-8370.0,\"InvestmentsCapDevp\":-350.0,\"CfInvestmentInterest\":2540.0,\"CfInvestmentDividends\":10420.0,\"StockSales\":74330.0,\"DebtRepay\":-90130.0,\"OtherCfInvestments\":-3010.0,\"CashFlowOperations\":27030.0,\"InterestFin\":-20860.0,\"InvestmentsLoans\":-780.0,\"DebtIssue\":35870.0,\"InvestmentsPpe\":-33100.0}},{\"dateBegin\":\"2016-03-31\",\"dateEnd\":\"2017-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":164730.0,\"CurrentPayables\":58700.0,\"RawMaterials\":51180.0,\"Cash\":7880.0,\"OtherLongTermAssets\":-23520.0,\"AccountReceivables\":20460.0,\"PlantPropertyEquipment\":393050.0,\"LongTermInvestmentsMv\":73500.0,\"OtherCurrentLiabilities\":110710.0,\"AccumulatedDepreciation\":182300.0,\"WorkInProgress\":56870.0,\"CommonStock\":6790.0,\"CurrentInvestmentsMv\":169630.0,\"RetainedEarnings\":225830.0},\"balanceSheetEnd\":{\"LongTermLoans\":193570.0,\"CurrentPayables\":79330.0,\"RawMaterials\":55530.0,\"Cash\":3270.0,\"OtherLongTermAssets\":-21650.0,\"AccountReceivables\":21280.0,\"PlantPropertyEquipment\":398860.0,\"LongTermInvestmentsMv\":76960.0,\"OtherCurrentLiabilities\":104250.0,\"AccumulatedDepreciation\":191130.0,\"WorkInProgress\":72710.0,\"CommonStock\":6790.0,\"CurrentInvestmentsMv\":172960.0,\"RetainedEarnings\":204830.0},\"profitLoss\":{\"Pbitda\":14940.0,\"OperatingRevenue\":443160.0,\"OtherExpenses\":47105.299999999996,\"Depreciation\":30370.0,\"Interest\":15690.0,\"CostMaterial\":304043.30000000005,\"DirectExpenses\":29976.100000000002,\"Pbt\":-23530.0,\"Pat\":-24300.0,\"OtherIncome\":7590.0,\"Salaries\":34258.4,\"TaxesCurrent\":705.9000000000001},\"cashFlow\":{\"ChgInvestments\":-5370.0,\"InvestmentsCapDevp\":200.0,\"CfInvestmentInterest\":2590.0,\"CfInvestmentDividends\":6730.0,\"StockSales\":50.0,\"DebtRepay\":-74730.0,\"OtherCfInvestments\":3610.0,\"CashFlowOperations\":14530.0,\"InterestFin\":-19360.0,\"DebtIssue\":106870.0,\"InvestmentsPpe\":-36360.0,\"Dividends\":-730.0}},{\"dateBegin\":\"2017-03-31\",\"dateEnd\":\"2018-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":193570.0,\"CurrentPayables\":79330.0,\"RawMaterials\":55530.0,\"Cash\":3270.0,\"OtherLongTermAssets\":-21650.0,\"AccountReceivables\":21280.0,\"PlantPropertyEquipment\":398860.0,\"LongTermInvestmentsMv\":76960.0,\"OtherCurrentLiabilities\":104250.0,\"AccumulatedDepreciation\":191130.0,\"WorkInProgress\":72710.0,\"CommonStock\":6790.0,\"CurrentInvestmentsMv\":172960.0,\"RetainedEarnings\":204830.0},\"balanceSheetEnd\":{\"LongTermLoans\":184640.0,\"CurrentPayables\":94110.0,\"RawMaterials\":56700.0,\"Cash\":7950.0,\"OtherLongTermAssets\":-17500.0,\"AccountReceivables\":34800.0,\"PlantPropertyEquipment\":431660.0,\"LongTermInvestmentsMv\":74530.0,\"OtherCurrentLiabilities\":111660.0,\"AccumulatedDepreciation\":215620.0,\"WorkInProgress\":51970.0,\"CommonStock\":6790.0,\"CurrentInvestmentsMv\":167640.0,\"RetainedEarnings\":194920.0},\"profitLoss\":{\"Pbitda\":22700.0,\"OperatingRevenue\":578970.0,\"OtherExpenses\":55626.0,\"Depreciation\":31020.0,\"Interest\":17440.0,\"CostMaterial\":411632.39999999997,\"DirectExpenses\":27813.0,\"Pbt\":-9470.0,\"Pat\":-10350.0,\"OtherIncome\":16290.0,\"Salaries\":38938.200000000004,\"TaxesCurrent\":852.3000000000001},\"cashFlow\":{\"ChgInvestments\":10260.0,\"InvestmentsCapDevp\":600.0,\"CfInvestmentInterest\":3990.0,\"CfInvestmentDividends\":10550.0,\"DebtRepay\":-74100.0,\"OtherCfInvestments\":-1110.0,\"CashFlowOperations\":41340.0,\"InterestFin\":-20980.0,\"DebtIssue\":64060.0,\"InvestmentsPpe\":-30950.0,\"Dividends\":-30.0,\"AcqEquityAssets\":-440.0}},{\"dateBegin\":\"2018-03-31\",\"dateEnd\":\"2019-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":184640.0,\"CurrentPayables\":94110.0,\"RawMaterials\":56700.0,\"Cash\":7950.0,\"OtherLongTermAssets\":-17500.0,\"AccountReceivables\":34800.0,\"PlantPropertyEquipment\":431660.0,\"LongTermInvestmentsMv\":74530.0,\"OtherCurrentLiabilities\":111660.0,\"AccumulatedDepreciation\":215620.0,\"WorkInProgress\":51970.0,\"CommonStock\":6790.0,\"CurrentInvestmentsMv\":167640.0,\"RetainedEarnings\":194920.0},\"balanceSheetEnd\":{\"LongTermLoans\":186400.0,\"CurrentPayables\":104090.0,\"RawMaterials\":46620.0,\"Cash\":13070.0,\"OtherLongTermAssets\":-15650.0,\"AccountReceivables\":32510.0,\"PlantPropertyEquipment\":453970.0,\"LongTermInvestmentsMv\":78150.0,\"OtherCurrentLiabilities\":96990.0,\"AccumulatedDepreciation\":231100.0,\"WorkInProgress\":62870.0,\"CommonStock\":6790.0,\"CurrentInvestmentsMv\":168670.0,\"RetainedEarnings\":214830.0},\"profitLoss\":{\"Pbitda\":45370.0,\"OperatingRevenue\":692030.0,\"OtherExpenses\":58198.5,\"Depreciation\":30990.0,\"Interest\":17940.0,\"CostMaterial\":472054.5,\"DirectExpenses\":32332.5,\"Pbt\":23990.0,\"Pat\":20210.0,\"OtherIncome\":27540.0,\"Salaries\":38799.0,\"TaxesCurrent\":3838.3999999999996},\"cashFlow\":{\"ChgInvestments\":9520.0,\"InvestmentsCapDevp\":-20.0,\"CfInvestmentInterest\":3270.0,\"CfInvestmentDividends\":15690.0,\"DebtRepay\":-89770.0,\"OtherCfInvestments\":-10760.0,\"CashFlowOperations\":62930.0,\"InterestFin\":-23550.0,\"DebtIssue\":88050.0,\"InvestmentsPpe\":-55910.0,\"Dividends\":-30.0}},{\"dateBegin\":\"2011-03-31\",\"dateEnd\":\"2012-03-31\",\"balanceSheetBegin\":{\"LongTermLoans\":159910.0,\"CurrentPayables\":43770.0,\"RawMaterials\":38910.0,\"Cash\":24290.0,\"OtherLongTermAssets\":27790.0,\"AccountReceivables\":26030.0,\"PlantPropertyEquipment\":218830.0,\"LongTermInvestmentsMv\":26470.0,\"OtherCurrentLiabilities\":138130.0,\"AccumulatedDepreciation\":84660.0,\"WorkInProgress\":37990.0,\"CommonStock\":6350.0,\"CurrentInvestmentsMv\":226240.0,\"RetainedEarnings\":193760.0},\"balanceSheetEnd\":{\"LongTermLoans\":158810.0,\"CurrentPayables\":56150.0,\"RawMaterials\":45880.0,\"Cash\":18410.0,\"OtherLongTermAssets\":25980.0,\"AccountReceivables\":27080.0,\"PlantPropertyEquipment\":249850.0,\"LongTermInvestmentsMv\":29760.0,\"OtherCurrentLiabilities\":133980.0,\"AccumulatedDepreciation\":99660.0,\"WorkInProgress\":40370.0,\"CommonStock\":6350.0,\"CurrentInvestmentsMv\":204940.0,\"RetainedEarnings\":187330.0},\"profitLoss\":{\"Pbitda\":41480.0,\"OperatingRevenue\":543070.0,\"OtherExpenses\":35111.3,\"Depreciation\":16070.0,\"Interest\":12190.0,\"CostMaterial\":366160.7,\"DirectExpenses\":35111.3,\"Pbt\":13410.0,\"Pat\":12420.0,\"OtherIncome\":190.0,\"Salaries\":25079.5,\"TaxesCurrent\":938.7},\"cashFlow\":{\"ChgInvestments\":42630.0,\"InvestmentsCapDevp\":160.0,\"CfInvestmentInterest\":3310.0,\"CfInvestmentDividends\":1810.0,\"DebtRepay\":-70170.0,\"OtherCfInvestments\":130.0,\"CashFlowOperations\":36540.0,\"InterestFin\":-14820.0,\"InvestmentsLoans\":-870.0,\"OtherCfFinancing\":-11470.0,\"DebtIssue\":68730.0,\"InvestmentsPpe\":-45200.0,\"Dividends\":-14620.0,\"AcqEquityAssets\":-470.0}}],\"shareprices\":null,\"rate\":null,\"beta\":null}"  :: Text
 
+
+  let Just tz1 = S.jsonToCompany cz
+  let _cz1 = S.companyToJson tz1
+  -- print (S.jsonToCompany cz1) 
+
+  -- print $ "cz = "; print $ S.sortAccountVec (tz1 ^. docs)
+
+  ("Sort Company docs"::String) `qTest`
+    [ not $ S.checkCompany tz1 
+    , (S.checkCompany . S.sortCompanyDocs) tz1
+    ]
+
+  let acz = S.sortCheckCompany tz1
+
+  -- let ac1 = (acz ^. docs) ! 0
+
+  -- print $ ac1
 
   putStrLn "Bye"
 

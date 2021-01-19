@@ -23,6 +23,7 @@ library
                   ,     containers
                   ,     time
                   ,     vector
+                  ,     vector-algorithms
                   ,     deepseq
                   ,     lens
                   ,     hashable
@@ -47,6 +48,7 @@ test-suite tests
                     ,   time
                     ,   finz
                     ,   vector
+                    ,   vector-algorithms
                     ,   deepseq
                     ,   hashable
                     ,   lens

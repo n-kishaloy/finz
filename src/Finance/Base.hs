@@ -290,7 +290,7 @@ npv tim cf t0 r = (npvT tim cf r)*r1**t0 where r1=1+r
 *r = rate of return across the periods
 -}
 npvT :: DVec -> DVec -> Double -> Double
-npvT tim cf r = (U.sum $ U.zipWith (\c t->c/r1**t) cf tim) where r1=1+r
+npvT tim cf r = U.sum $ U.zipWith (\c t->c/r1**t) cf tim where r1=1+r
 
 {-|@npvN cf t0 r = NPV of cash flows against time given in periods@
 
@@ -310,7 +310,7 @@ npvN cf t0 r = (npvNT cf r)*r1**t0 where r1 = 1+r
 *r = rate of return across the periods
 -}
 npvNT :: DVec -> Double -> Double
-npvNT cf r = (U.sum $ U.zipWith (\c t->c/r1**t) cf (U.fromList [0.0,1.0..fromIntegral $ U.length cf - 1])) where r1 = 1+r
+npvNT cf r = U.sum $ U.zipWith (\c t->c/r1**t) cf (U.fromList [0.0,1.0..fromIntegral $ U.length cf - 1]) where r1 = 1+r
 
 {-|@irr cf = IRR of cash flows assumed to be spread equally in time@
 
