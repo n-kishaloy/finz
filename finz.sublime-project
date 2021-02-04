@@ -4,5 +4,12 @@
 		{
 			"path": "."
 		}
-	]
+	],
+  "build_systems":
+  [
+    {
+      "name": "KN-Haskell",
+      "shell_cmd": "stack build --test --haddock +RTS -s"
+    }
+  ]
 }

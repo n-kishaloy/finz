@@ -34,6 +34,7 @@ module Finance.Statements
 , Param (..), HasPU (..), HasPW (..), HasPE (..), HasPD (..)
 , eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec
 , cleanRecord, cleanAccount, cleanNSetAccount, cleanNSetAccountVec
+, setAccount
 , sortAccountVec, sortCompanyDocs, sortCheckCompany
 , balShBegin, balShEnd, profLoss, cashFl, mkAccount, splitAccount
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
@@ -44,7 +45,7 @@ module Finance.Statements
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..), accountToJson, jsonToAccount, companyToJson, jsonToCompany
 , FinType, FinStat
-, setBsMap, setPlMap, setCfMap, checkBsMap, checkPlMap, checkCfMap
+, checkBsMap, checkPlMap, checkCfMap
 , getEOMonth
 , credit, debit, transact, transactSeries
 , checkCompany, setCompany
@@ -132,6 +133,7 @@ data BsTyp =
   IntangibleAssets              |
   IntangibleAssetsDevelopment   |
   AccumulatedAmortization       |   
+  NetIntangibleAssets           |
   LongTermAssets                |
   Assets                        |  
   CurrentPayables               |
@@ -189,8 +191,10 @@ data PlTyp =
   NonOperatingRevenue           |
   ExciseStaxLevy                |
   OtherIncome                   |
+  Revenue                       |
   CostMaterial                  |
   DirectExpenses                |
+  COGS                          |
   Salaries                      |
   AdministrativeExpenses        |
   ResearchNDevelopment          |
@@ -198,11 +202,17 @@ data PlTyp =
   OtherOperativeExpenses        |
   OtherExpenses                 |
   ExceptionalItems              |  
+  GrossProfit                   |
   Pbitda                        |
   Depreciation                  |
+  AssetImpairment               |
+  LossDivestitures              |
   Amortization                  |
   Pbitx                         |
-  Interest                      |
+  InterestRevenue               |
+  InterestExpense               |
+  CostDebt                      |
+  OtherFinancialRevenue         |
   Pbtx                          |
   ExtraordinaryItems            |
   PriorYears                    |
@@ -882,7 +892,7 @@ debit bs t v = case t of
   OtherTangibleAssets           -> adder v  
   IntangibleAssets              -> adder v
   IntangibleAssetsDevelopment   -> adder v
-  AccumulatedAmortization       -> adder v   
+  AccumulatedAmortization       -> adder (-v) -- Contra Account
   CurrentPayables               -> adder (-v)
   CurrentBorrowings             -> adder (-v)
   CurrentNotesPayable           -> adder (-v)
@@ -945,25 +955,69 @@ transactSeries = foldl' (\y (db,cr,v) -> transact y db cr v)
 
 The calulated elements includes Current Assets, Assets, Equity, 
 -}
-calcElem :: FinType a=>[(a,[a],[a])]->Hm.HashMap a Double -> Hm.HashMap a Double
-calcElem [] h = h
-calcElem ((z,y0,y1):xs) h = calcElem xs (gv z y1 y0 h) where
+calcEl :: FinType a=>[(a,[a],[a])]->Hm.HashMap a Double -> Hm.HashMap a Double
+calcEl [] h = h 
+calcEl ((z,y0,y1):xs) h = calcEl xs (gv z y0 y1 h) where
   gv :: FinType a => a -> [a]-> [a]-> Hm.HashMap a Double ->Hm.HashMap a Double
-  gv k ad sb mp = Hm.insert k (adder ad - adder sb) mp where
-    adder = foldl' (\y w -> y + Hm.lookupDefault 0.0 w mp) 0.0
+  gv k ad sb mp = case k `Hm.lookup` mp of 
+    Nothing -> Hm.insert k t mp
+    Just x  -> if appx x t then Hm.insert k t mp
+      else error $ show k ++ " => Orig : " ++ show x ++ ", Calc : " ++ show t
+    where 
+      t = adder ad - adder sb
+      adder = foldl' (\y w -> y + Hm.lookupDefault 0.0 w mp) 0.0
+      appx x y = mx<0.1 || abs (x-y) / mx < 0.01 where mx = max (abs x) (abs y)
 
-{-|@setBsMap bs = Evaluate and Set BsMap@
 
-The BsMap is evaluated as well as populated for calculated items
-like CurrentAssets, LongTermAssets, Assets, Equity etc. If those items are 
-already present, then they are updated. 
+bsCalc :: [(BsTyp,[BsTyp],[BsTyp])]
+bsCalc = []
 
-At the end the checkBsMap run to ensure consistency in the Balance Sheet. Returns 
-__@Nothing@__ if inconsistant.
--}
-setBsMap :: Maybe BsMap -> Maybe (Maybe BsMap)
-setBsMap Nothing  = Just Nothing 
-setBsMap bs = Just bs
+plCalc :: [(PlTyp, [PlTyp], [PlTyp])]
+plCalc = 
+    [ (Revenue,
+      [OperatingRevenue, NonOperatingRevenue],
+      [ExciseStaxLevy]
+      )
+    , (COGS,
+      [CostMaterial, DirectExpenses],
+      []
+      )
+    , (GrossProfit,
+      [Revenue],
+      [COGS]
+      )
+    , (Pbitda,
+      [GrossProfit, OtherIncome],
+      [Salaries, AdministrativeExpenses, ResearchNDevelopment, OtherOverheads, OtherOperativeExpenses, OtherExpenses, ExceptionalItems]
+      )
+    , (Pbitx,
+      [Pbitda],
+      [Depreciation, AssetImpairment, LossDivestitures, Amortization]
+      )
+    , (Pbtx,
+      [Pbitx, InterestRevenue, OtherFinancialRevenue],
+      [InterestExpense, CostDebt]
+      )
+    , (Pbt,
+      [Pbtx],
+      [ExtraordinaryItems, PriorYears]
+      )
+    , (Pat,
+      [Pbt],
+      [TaxesCurrent, TaxesDeferred]
+      )
+    , (OtherComprehensiveIncome,
+      [GainsLossesForex, GainsLossesActurial, GainsLossesSales, FvChgAvlSale],
+      [OtherDeferredTaxes]
+      )
+    , (TotalComprehensiveIncome,
+      [Pat, OtherComprehensiveIncome],
+      []
+      )
+    ]
+
+cfCalc :: [(CfTyp,[CfTyp],[CfTyp])]
+cfCalc = []
 
 {-|@checkBsMap bs = Evaluate consistency of BsMap@
 
@@ -973,18 +1027,6 @@ sets them.
 checkBsMap :: BsMap -> Bool
 checkBsMap bs = True
 
-{-|@setPlMap pl = Evaluate and Set PlMap@
-
-The PlMap is evaluated as well as populated for calculated items like Pbitda, 
-Pbit etc. If those items are already present, then they are updated. 
-
-At the end the checkPlMap run to ensure consistency in the Profit Loss Statement. 
-Returns __@Nothing@__ if inconsistant.
--}
-setPlMap :: Maybe PlMap -> Maybe (Maybe PlMap)
-setPlMap Nothing = Just Nothing 
-setPlMap pl = Just pl
-
 {-|@checkPlMap pl = Evaluate consistency of PlMap@
 
 In case calculated items has not been set then the function internally 
@@ -992,19 +1034,6 @@ sets them.
 -}
 checkPlMap :: PlMap -> Bool
 checkPlMap pl = True
-
-{-|@setCfMap cf = Evaluate and Set CfMap@
-
-The CfMap is evaluated as well as populated for calculated items
-like CashFlowOperations, Fcff, Fcfd etc. If those items are 
-already present, then they are updated. 
-
-At the end the checkCfMap run to ensure consistency in the Cash Flow Statements. 
-Returns __@Nothing@__ if inconsistant.
--}
-setCfMap :: Maybe CfMap -> Maybe (Maybe CfMap)
-setCfMap Nothing = Just Nothing 
-setCfMap cf = Just cf
 
 {-|@checkCfMap cf = Evaluate consistency of CfMap@
 
@@ -1050,35 +1079,34 @@ checkAccount (Account _ _ bB bE pl cf) =
 checkCompany :: Company -> Bool
 checkCompany cp = checkAccountVec (cp ^. docs)
 
-setAccount :: Account -> Maybe Account
-setAccount (Account dB dE bB bE pl cf) = do 
-  bB1 <- setBsMap bB 
-  bE1 <- setBsMap bE 
-  pl1 <- setPlMap pl 
-  cf1 <- setCfMap cf 
-  return (Account dB dE bB1 bE1 pl1 cf1)
+setAccount :: Account -> Account
+setAccount (Account dB dE bB bE pl cf) = Account dB dE bB1 bE1 pl1 cf1 where
+  bB1 = calcEl bsCalc <$> bB 
+  bE1 = calcEl bsCalc <$> bE 
+  pl1 = calcEl plCalc <$> pl 
+  cf1 = calcEl cfCalc <$> cf 
 
-setAccountVec :: V.Vector Account -> Maybe (V.Vector Account)
-setAccountVec = traverse setAccount
+setAccountVec :: V.Vector Account -> V.Vector Account
+setAccountVec = (setAccount <$>)
 
 setCompany :: Company -> Maybe Company
 setCompany (Company cd af cn d0 sp rt bt) = do 
-  d1 <- setAccountVec d0
+  let d1 = setAccountVec d0
   d2 <- intpAccount d1
 
   return (Company cd af cn d2 sp rt bt)
 
-cleanNSetAccount :: Account -> Maybe Account
+cleanNSetAccount :: Account -> Account
 cleanNSetAccount = setAccount . cleanAccount
 
-cleanNSetAccountVec :: V.Vector Account -> Maybe (V.Vector Account)
-cleanNSetAccountVec = traverse cleanNSetAccount
+cleanNSetAccountVec :: V.Vector Account -> V.Vector Account
+cleanNSetAccountVec = (cleanNSetAccount <$>)
 
 -- |Interpolate missing Financial Statements
 intpAccount :: V.Vector Account -> Maybe (V.Vector Account)
 intpAccount v0 = do
   let v1 = v0 -- TODO: Add your code here
-  traverse cleanNSetAccount v1
+  return $ cleanNSetAccountVec v1
 
 -- | Sort Account vector by dateEnd. Note no sanctity check of dates are
 -- performed here. If needed, plz use checkAccounts for check of 

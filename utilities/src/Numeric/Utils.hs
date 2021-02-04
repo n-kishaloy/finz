@@ -6,7 +6,7 @@
 
 module Numeric.Utils
 ( dot
-, (+^), (-^), (*^), (/^), interp
+, (+^), (-^), (*^), (/^), interp, between, tolerance
 , grad, negGrad
 , DVec
 , mround, dround
@@ -26,6 +26,7 @@ type DVec = U.Vector Double
 
 infixl 7 *^, /^
 infixl 6 +^, -^
+infix 4 `between` 
 
 dot :: (Unbox a, Num a) => U.Vector a -> U.Vector a -> a
 dot x y = U.sum $ U.zipWith (*) x y; {-# INLINE dot #-}
@@ -64,3 +65,9 @@ mround m = (*m) . fromInteger . round . (/m)
 
 dround :: RealFloat  a => Int -> a -> a
 dround n = mround (1/(10 ^^ n))
+
+between :: Ord a => a -> (a, a) -> Bool   
+between x (y,z) = y <= x && x < z
+
+tolerance :: (Ord a, Num a) => a -> a -> a -> Bool 
+tolerance t x y = y `between` (x-t,x+t)

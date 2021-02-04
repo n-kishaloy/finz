@@ -2,7 +2,8 @@
 
 module Main where
 
-import Numeric.Utils (dot,(+^), (-^), (*^), (/^), DVec)
+import qualified Numeric.Utils as Ut
+import Numeric.Utils (dot,(+^), (-^), (*^), (/^), DVec, between)
 import qualified Numeric.Utils as Nu
 import qualified Numeric.Optima as Op
 import Data.Approx
@@ -63,6 +64,15 @@ main = do
   quickCheck $ Nu.mround 200 257878.257 == 257800.0
   quickCheck $ Nu.dround 3 2.569878 == 2.570
   quickCheck $ Nu.dround 2 3.562478 == 3.56
+
+  quickCheck $ 5 `between` (1,8) 
+  quickCheck $ 5.3 `between` (1.5,7.4)
+  quickCheck $ not $ 2.1 `between` (2.5,3.2)
+
+  let tol075 = Ut.tolerance 0.75
+
+  quickCheck $ tol075 2.5 2.75
+  quickCheck $ not $ tol075 3.57 4.5
 
 
   print $ "Bye"
