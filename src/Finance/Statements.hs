@@ -20,7 +20,7 @@ You may see the github repository at <https://github.com/n-kishaloy/finz>
 
 -}
 
-{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE NumericUnderscores, OverloadedLists #-}
 {-# LANGUAGE Strict, OverloadedStrings, FlexibleContexts, RankNTypes #-}
 {-# LANGUAGE TemplateHaskell, FunctionalDependencies, FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
@@ -44,7 +44,7 @@ module Finance.Statements
 , HasBalanceSheetEnd (..), HasProfitLoss (..), HasCashFlow (..)
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..), accountToJson, jsonToAccount, companyToJson, jsonToCompany
-, FinType, FinStat
+, FinType (..), FinStat
 , checkBsMap, checkPlMap, checkCfMap
 , getEOMonth
 , credit, debit, transact, transactSeries
@@ -55,6 +55,7 @@ import GHC.Generics (Generic)
 import Data.Hashable ( Hashable )
 import Data.Time (Day, fromGregorian, parseTimeM, defaultTimeLocale, toGregorian)
 import qualified Data.HashMap.Strict as Hm
+import qualified Data.HashSet as Hs
 import Data.Bifunctor (second)
 
 import qualified Finance.Base as F
@@ -78,6 +79,7 @@ import Data.Approx
 import Control.Monad (forM)
 import Control.Lens
 import Data.Ord (comparing)
+import Data.Function ((&))
 -- import Control.Lens.TH
 
 -- debug = flip trace
@@ -98,7 +100,52 @@ data CheckShake = CheckShake
 
 makeFields ''CheckShake
 
-class (Show a, Eq a, Hashable a, Ord a) => FinType a 
+class (Show a, Eq a, Hashable a, Ord a, Enum a) => FinType a where
+
+  typList :: [a]
+
+  typVec :: V.Vector a
+  typVec = V.fromList typList
+
+  {-|@calcElem x h = Calculate and set the derived items in statements@
+  The calulated elements includes Current Assets, Assets, Equity,  -}
+  calcElem :: Hm.HashMap a Double -> Hm.HashMap a Double
+  calcElem p = 
+    foldl' (\h (z,y0,y1)-> Hm.insert z (adder y0 - adder y1) h) p calcComb
+    where adder = foldl' (\y w -> y + Hm.lookupDefault 0.0 w p) 0.0
+
+  {-|@reduceMap x = Remove derived items in statements@
+  The removed elements includes Current Assets, Assets, Equity, 
+  -}
+  reduceMap :: Maybe (Hm.HashMap a Double) -> Maybe (Hm.HashMap a Double)
+  reduceMap = ((\x -> foldl' (flip Hm.delete) x calcVec) <$>)
+
+  calcComb :: [(a,[a],[a])]
+
+  calcSet :: Hs.HashSet a
+  calcSet = Hs.fromList $ (\(x,_,_) -> x) <$> calcComb
+
+  calcVec :: V.Vector a
+  calcVec = V.fromList $ Hs.toList calcSet
+
+  isCalc :: a -> Bool
+  isCalc = flip Hs.member calcSet
+  {-# INLINE isCalc #-}
+
+  checkCalc :: a -> b -> b
+  checkCalc t x = if isCalc t then error ("Calc item : "++show t) else x
+  {-# INLINE checkCalc #-}
+
+  removeCalc :: [(a,Double)] -> [(a,Double)]
+  removeCalc = filter (not . isCalc . fst)
+  
+  setMap :: Maybe (Hm.HashMap a Double) -> Maybe (Hm.HashMap a Double)
+  setMap = (calcElem <$>) 
+
+  typMap :: Hm.HashMap Text a
+
+
+
 class FinStat a
 
 data Statuz = Unset | Actual | Estimated deriving (Show, Eq)
@@ -119,7 +166,7 @@ data BsTyp =
   FinishedGoods                 |
   CurrentAssets                 |
   AccountReceivables            |
-  LongTermLoans                 |
+  LongTermLoanAssets            |
   LongTermAdvances              |
   LongTermInvestmentsBv         |   
   LongTermInvestmentsMv         |
@@ -127,7 +174,7 @@ data BsTyp =
   PlantPropertyEquipment        |
   AccumulatedDepreciation       |
   NetPlantPropertyEquipment     |
-  LeasingRentalAssset           |
+  LeasingRentalAssets           |
   CapitalWip                    |
   OtherTangibleAssets           |  
   IntangibleAssets              |
@@ -169,7 +216,7 @@ data BsTyp =
   AccumulatedOci                |
   MinorityInterests             |
   Equity
-  deriving (Eq, Show, Ord, Generic, FinType, Enum, Bounded)
+  deriving (Eq, Show, Ord, Generic, Enum, Bounded)
 
 instance Hashable BsTyp
 
@@ -223,11 +270,11 @@ data PlTyp =
   GainsLossesForex              |
   GainsLossesActurial           |
   GainsLossesSales              |
-  FvChgAvlSale                  |
+  FvChangeAvlSale               |
   OtherDeferredTaxes            |
   OtherComprehensiveIncome      |
   TotalComprehensiveIncome 
-  deriving (Eq, Show, Ord, Generic, FinType, Enum, Bounded)
+  deriving (Eq, Show, Ord, Generic, Enum, Bounded)
 
 instance Hashable PlTyp
 type PlMap = Hm.HashMap PlTyp Double
@@ -245,10 +292,10 @@ makeFields ''ProfitLoss
 data CfTyp defines all entries that go in a Cash Flow Statement.
 -}
 data CfTyp = 
-  ChgInventories                |
-  ChgReceivables                |
-  ChgLiabilities                |
-  ChgProvisions                 |
+  ChangeInventories             |
+  ChangeReceivables             |
+  ChangeLiabilities             |
+  ChangeProvisions              |
   OtherCfOperations             |
   CashFlowOperations            |
   InvestmentsPpe                |
@@ -257,7 +304,7 @@ data CfTyp =
   AcqEquityAssets               |
   DisEquityAssets               |
   DisPpe                        |
-  ChgInvestments                |
+  ChangeInvestments             |
   CfInvestmentInterest          |
   CfInvestmentDividends         |
   OtherCfInvestments            |
@@ -276,7 +323,7 @@ data CfTyp =
   Fcfs                          |
   Fcfe                          |
   Fcfd                 
-  deriving (Eq, Show, Ord, Generic, FinType, Enum, Bounded)
+  deriving (Eq, Show, Ord, Generic, Enum, Bounded)
 
 instance Hashable CfTyp
 type CfMap = Hm.HashMap CfTyp Double
@@ -289,6 +336,69 @@ data CashFlow = CashFlow
   } deriving (Show, FinStat)
 
 makeFields ''CashFlow
+
+instance FinType BsTyp where 
+  typList = enumFrom minBound::[BsTyp]
+
+  typMap = Hm.fromList $ zip (T.pack . show <$> (typList::[BsTyp])) typList 
+
+  calcComb = []
+
+instance FinType PlTyp where 
+  typList = enumFrom minBound::[PlTyp]
+
+  typMap = Hm.fromList $ zip (T.pack . show <$> (typList::[PlTyp])) typList 
+
+  calcComb = 
+    [ (Revenue,
+      [OperatingRevenue, NonOperatingRevenue],
+      [ExciseStaxLevy]
+      )
+    , (COGS,
+      [CostMaterial, DirectExpenses],
+      []
+      )
+    , (GrossProfit,
+      [Revenue],
+      [COGS]
+      )
+    , (Pbitda,
+      [GrossProfit, OtherIncome],
+      [Salaries, AdministrativeExpenses, ResearchNDevelopment, OtherOverheads, OtherOperativeExpenses, OtherExpenses, ExceptionalItems]
+      )
+    , (Pbitx,
+      [Pbitda],
+      [Depreciation, AssetImpairment, LossDivestitures, Amortization]
+      )
+    , (Pbtx,
+      [Pbitx, InterestRevenue, OtherFinancialRevenue],
+      [InterestExpense, CostDebt]
+      )
+    , (Pbt,
+      [Pbtx],
+      [ExtraordinaryItems, PriorYears]
+      )
+    , (Pat,
+      [Pbt],
+      [TaxesCurrent, TaxesDeferred]
+      )
+    , (OtherComprehensiveIncome,
+      [GainsLossesForex, GainsLossesActurial, GainsLossesSales, FvChangeAvlSale],
+      [OtherDeferredTaxes]
+      )
+    , (TotalComprehensiveIncome,
+      [Pat, OtherComprehensiveIncome],
+      []
+      )
+    ]
+
+
+instance FinType CfTyp where 
+  typList = enumFrom minBound::[CfTyp]
+
+  typMap = Hm.fromList $ zip (T.pack . show <$> (typList::[CfTyp])) typList 
+
+  calcComb = []
 
 data Statement = Statement
   { statementDateBegin         :: Day
@@ -385,11 +495,6 @@ instance GetRecords CashFlow CfTyp where
   (!!%) x (k,v) = x & rec .~ Hm.insert k v (x^.rec)
   recToList x = Hm.toList (x^.rec)
 
--- instance FinType a => Approx (Hm.HashMap a Double) where
---   x =~ y = (fz x y) && (fz y x) where
---     fz p q = foldl' (f p) True $ Hm.toList q
---     f p t z = t && ((Hm.lookupDefault 0.0 k p) =~ v) where (k,v) = z 
-
 {-|@eqlRec x y = check equality of HashMaps x and y@
 
 *x = HashMap of Finance Type
@@ -425,19 +530,6 @@ notMaybeEqlRec :: FinType a => Maybe (Hm.HashMap a Double) -> Maybe (Hm.HashMap 
 notMaybeEqlRec x y = not $ maybeEqlRec x y
 
 infix 4 `eqlRec`, `notEqlRec`, `maybeEqlRec`, `notMaybeEqlRec`
-
-bsTypMap :: Hm.HashMap Text BsTyp
-bsTypMap = Hm.fromList $ zip (T.pack . show <$> xf) xf 
-  where xf = enumFrom minBound::[BsTyp] 
-
-plTypMap :: Hm.HashMap Text PlTyp
-plTypMap = Hm.fromList $ zip (T.pack . show <$> xf) xf 
-  where xf = enumFrom minBound::[PlTyp] 
-
-cfTypMap :: Hm.HashMap Text CfTyp
-cfTypMap = Hm.fromList $ zip (T.pack . show <$> xf) xf 
-  where xf = enumFrom minBound::[CfTyp] 
-
 
 -- |Financial statements corresponding to a period between __DateBegin__ and __DateEnd__. 
 data Account = Account
@@ -529,11 +621,12 @@ class FinType a => GetAccount a where
   x `updateBeginItems` (y:ys) = x !^% y >>= (`updateBeginItems` ys)
 
   stringToTyp :: Text -> Maybe a
+  stringToTyp s = Hm.lookup s typMap
 
   recToJSON :: Show a =>  Hm.HashMap a Double -> Text
-  recToJSON s = T.pack (concat ["{",ps,"}"]) where
+  recToJSON s = T.pack (concat (["{",ps,"}"]::[String])) where
     _:ps = foldl' f "" $ Hm.toList s
-    f v (x,y) = if y =~ 0.0 then v else concat [v,",\"",show x,"\":", show y] 
+    f v (x,y) = if y =~ 0.0 then v else concat ([v,",\"",show x,"\":", show y] :: [String])
 
   jRec :: (Hashable a, Eq a) => As.Object -> Maybe (Hm.HashMap a Double)
   jRec x = Hm.fromList <$> foldl' f (Just []) (Hm.toList x) 
@@ -621,7 +714,6 @@ instance GetAccount BsTyp where
     p <- x ^. balanceSheetEnd
     return $ x & balanceSheetEnd ?~ Hm.insert k v p
 
-  stringToTyp s = Hm.lookup s bsTypMap
 
 instance GetAccount PlTyp where
   (!>>) x t = do p <- x^.profitLoss; return $ Hm.lookupDefault 0.0 t p
@@ -635,7 +727,6 @@ instance GetAccount PlTyp where
     p <- x ^. profitLoss
     return $ x & profitLoss ?~ Hm.insert k v p
 
-  stringToTyp s = Hm.lookup s plTypMap
 
 instance GetAccount CfTyp where
   (!>>) x t = do p <- x^.cashFlow; return $ Hm.lookupDefault 0.0 t p
@@ -649,7 +740,6 @@ instance GetAccount CfTyp where
     p <- x ^. cashFlow
     return $ x & cashFlow ?~ Hm.insert k v p
 
-  stringToTyp s = Hm.lookup s cfTypMap
 
 -- |Extract Balance Sheet for Begin period
 balShBegin :: Account -> Maybe BalanceSheet
@@ -868,7 +958,7 @@ jsonToCompany s = do
 
 -- |@debit bs t v = debit value v from entry t in Balance Sheet bs@
 debit :: BsMap -> BsTyp -> Double -> BsMap
-debit bs t v = case t of 
+debit bs t v = checkCalc t $ case t of 
   Cash                          -> adder v
   CurrentReceivables            -> adder v
   CurrentLoans                  -> adder v
@@ -880,14 +970,14 @@ debit bs t v = case t of
   WorkInProgress                -> adder v
   FinishedGoods                 -> adder v
   AccountReceivables            -> adder v
-  LongTermLoans                 -> adder v
+  LongTermLoanAssets            -> adder v
   LongTermAdvances              -> adder v
   LongTermInvestmentsBv         -> adder v   
   LongTermInvestmentsMv         -> adder v
   OtherLongTermAssets           -> adder v 
   PlantPropertyEquipment        -> adder v
   AccumulatedDepreciation       -> adder (-v) -- Contra Account
-  LeasingRentalAssset           -> adder v
+  LeasingRentalAssets           -> adder v    
   CapitalWip                    -> adder v
   OtherTangibleAssets           -> adder v  
   IntangibleAssets              -> adder v
@@ -951,73 +1041,6 @@ transact bs deb crd val = credit (debit bs deb val) crd val
 transactSeries :: BsMap -> [(BsTyp, BsTyp, Double)] -> BsMap
 transactSeries = foldl' (\y (db,cr,v) -> transact y db cr v)
 
-{-|@calcElem x h = Calculate and set the derived items in statements@
-
-The calulated elements includes Current Assets, Assets, Equity, 
--}
-calcEl :: FinType a=>[(a,[a],[a])]->Hm.HashMap a Double -> Hm.HashMap a Double
-calcEl [] h = h 
-calcEl ((z,y0,y1):xs) h = calcEl xs (gv z y0 y1 h) where
-  gv :: FinType a => a -> [a]-> [a]-> Hm.HashMap a Double ->Hm.HashMap a Double
-  gv k ad sb mp = case k `Hm.lookup` mp of 
-    Nothing -> Hm.insert k t mp
-    Just x  -> if appx x t then Hm.insert k t mp
-      else error $ show k ++ " => Orig : " ++ show x ++ ", Calc : " ++ show t
-    where 
-      t = adder ad - adder sb
-      adder = foldl' (\y w -> y + Hm.lookupDefault 0.0 w mp) 0.0
-      appx x y = mx<0.1 || abs (x-y) / mx < 0.01 where mx = max (abs x) (abs y)
-
-
-bsCalc :: [(BsTyp,[BsTyp],[BsTyp])]
-bsCalc = []
-
-plCalc :: [(PlTyp, [PlTyp], [PlTyp])]
-plCalc = 
-    [ (Revenue,
-      [OperatingRevenue, NonOperatingRevenue],
-      [ExciseStaxLevy]
-      )
-    , (COGS,
-      [CostMaterial, DirectExpenses],
-      []
-      )
-    , (GrossProfit,
-      [Revenue],
-      [COGS]
-      )
-    , (Pbitda,
-      [GrossProfit, OtherIncome],
-      [Salaries, AdministrativeExpenses, ResearchNDevelopment, OtherOverheads, OtherOperativeExpenses, OtherExpenses, ExceptionalItems]
-      )
-    , (Pbitx,
-      [Pbitda],
-      [Depreciation, AssetImpairment, LossDivestitures, Amortization]
-      )
-    , (Pbtx,
-      [Pbitx, InterestRevenue, OtherFinancialRevenue],
-      [InterestExpense, CostDebt]
-      )
-    , (Pbt,
-      [Pbtx],
-      [ExtraordinaryItems, PriorYears]
-      )
-    , (Pat,
-      [Pbt],
-      [TaxesCurrent, TaxesDeferred]
-      )
-    , (OtherComprehensiveIncome,
-      [GainsLossesForex, GainsLossesActurial, GainsLossesSales, FvChgAvlSale],
-      [OtherDeferredTaxes]
-      )
-    , (TotalComprehensiveIncome,
-      [Pat, OtherComprehensiveIncome],
-      []
-      )
-    ]
-
-cfCalc :: [(CfTyp,[CfTyp],[CfTyp])]
-cfCalc = []
 
 {-|@checkBsMap bs = Evaluate consistency of BsMap@
 
@@ -1055,7 +1078,7 @@ isConsecutiveAccount x y =
 -- account0.dateEnd == account1.dateBegin && account0.dateEnd /~ None
 -- && account1.dateBegin /~ None
 checkAccountVec :: V.Vector Account -> Bool
-checkAccountVec vx = foldl' f (checkAccount (vx!0)) [0..(length vx - 2)] where
+checkAccountVec vx = foldl' f (checkAccount (vx!0)) ([0..(length vx - 2)]::V.Vector Int) where
   f y i = y && isConsecutiveAccount (vx!i) (vx!(i+1)) && checkAccount (vx!(i+1))
 
 -- |Check Account for consistency
@@ -1079,12 +1102,26 @@ checkAccount (Account _ _ bB bE pl cf) =
 checkCompany :: Company -> Bool
 checkCompany cp = checkAccountVec (cp ^. docs)
 
+reduceAccount :: Account -> Account
+reduceAccount (Account dB dE bB bE pl cf) = Account dB dE bB1 bE1 pl1 cf1 where
+  bB1 = reduceMap bB 
+  bE1 = reduceMap bE 
+  pl1 = reduceMap pl 
+  cf1 = reduceMap cf 
+
+reduceAccountVec :: V.Vector Account -> V.Vector Account
+reduceAccountVec = (reduceAccount <$>)
+
+reduceCompany :: Company -> Company
+reduceCompany (Company cd af cn d0 sp rt bt) = 
+  Company cd af cn (reduceAccountVec d0) sp rt bt
+
 setAccount :: Account -> Account
 setAccount (Account dB dE bB bE pl cf) = Account dB dE bB1 bE1 pl1 cf1 where
-  bB1 = calcEl bsCalc <$> bB 
-  bE1 = calcEl bsCalc <$> bE 
-  pl1 = calcEl plCalc <$> pl 
-  cf1 = calcEl cfCalc <$> cf 
+  bB1 = setMap bB 
+  bE1 = setMap bE 
+  pl1 = setMap pl 
+  cf1 = setMap cf 
 
 setAccountVec :: V.Vector Account -> V.Vector Account
 setAccountVec = (setAccount <$>)
