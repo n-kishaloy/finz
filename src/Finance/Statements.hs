@@ -34,7 +34,7 @@ module Finance.Statements
 , Param (..), HasPU (..), HasPW (..), HasPE (..), HasPD (..)
 , eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec
 , cleanRecord, cleanAccount, cleanNSetAccount, cleanNSetAccountVec
-, setAccount
+, setAccount, reduceCompany
 , sortAccountVec, sortCompanyDocs, sortCheckCompany
 , balShBegin, balShEnd, profLoss, cashFl, mkAccount, splitAccount
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
@@ -111,8 +111,8 @@ class (Show a, Eq a, Hashable a, Ord a, Enum a) => FinType a where
   The calulated elements includes Current Assets, Assets, Equity,  -}
   calcElem :: Hm.HashMap a Double -> Hm.HashMap a Double
   calcElem p = 
-    foldl' (\h (z,y0,y1)-> Hm.insert z (adder y0 - adder y1) h) p calcComb
-    where adder = foldl' (\y w -> y + Hm.lookupDefault 0.0 w p) 0.0
+    foldl' (\h (z,y0,y1)-> Hm.insert z (adder h y0 - adder h y1) h) p calcComb
+    where adder q = foldl' (\y w -> y + Hm.lookupDefault 0.0 w q) 0.0
 
   {-|@reduceMap x = Remove derived items in statements@
   The removed elements includes Current Assets, Assets, Equity, 
@@ -135,6 +135,9 @@ class (Show a, Eq a, Hashable a, Ord a, Enum a) => FinType a where
   checkCalc :: a -> b -> b
   checkCalc t x = if isCalc t then error ("Calc item : "++show t) else x
   {-# INLINE checkCalc #-}
+
+
+
 
   removeCalc :: [(a,Double)] -> [(a,Double)]
   removeCalc = filter (not . isCalc . fst)
@@ -159,17 +162,16 @@ data BsTyp =
   CurrentLoans                  |
   CurrentAdvances               |
   OtherCurrentAssets            |
-  CurrentInvestmentsBv          |
-  CurrentInvestmentsMv          |
+  CurrentInvestments            |
   RawMaterials                  |
+  Inventories                   |
   WorkInProgress                |
   FinishedGoods                 |
   CurrentAssets                 |
   AccountReceivables            |
   LongTermLoanAssets            |
   LongTermAdvances              |
-  LongTermInvestmentsBv         |   
-  LongTermInvestmentsMv         |
+  LongTermInvestments           |   
   OtherLongTermAssets           | 
   PlantPropertyEquipment        |
   AccumulatedDepreciation       |
@@ -342,7 +344,49 @@ instance FinType BsTyp where
 
   typMap = Hm.fromList $ zip (T.pack . show <$> (typList::[BsTyp])) typList 
 
-  calcComb = []
+  calcComb = 
+    [ (Inventories, 
+      [RawMaterials, WorkInProgress, FinishedGoods],
+      []
+      )
+    , (CurrentAssets,
+      [Cash, CurrentReceivables, CurrentLoans, CurrentAdvances, OtherCurrentAssets, CurrentInvestments, Inventories],
+      []
+      )
+    , (NetPlantPropertyEquipment,
+      [PlantPropertyEquipment],
+      [AccumulatedDepreciation]
+      )
+    , (NetIntangibleAssets,
+      [IntangibleAssets, IntangibleAssetsDevelopment],
+      [AccumulatedAmortization]
+      )
+    , (LongTermAssets,
+      [AccountReceivables, LongTermLoanAssets, LongTermAdvances, LongTermInvestments, OtherLongTermAssets, NetPlantPropertyEquipment, LeasingRentalAssets, CapitalWip, OtherTangibleAssets, NetIntangibleAssets],
+      []
+      )
+    , (Assets,
+      [CurrentAssets, LongTermAssets],
+      []
+      )
+    , (CurrentLiabilities,
+      [CurrentPayables, CurrentBorrowings, CurrentNotesPayable, OtherCurrentLiabilities, InterestPayable, CurrentProvisions, CurrentTaxPayables, LiabilitiesSaleAssets, CurrentLeasesLiability],
+      []
+      )
+    , (LongTermLiabilities,
+      [AccountPayables, LongTermBorrowings, BondsPayable, DeferredTaxLiabilities, LongTermLeasesLiability, DeferredCompensation, DeferredRevenues, CustomerDeposits, OtherLongTermLiabilities, PensionProvision, LongTermProvisions],
+      []
+      )
+    , (Liabilities,
+      [CurrentLiabilities, LongTermLiabilities],
+      []
+      )
+    , (Equity,
+      [CommonStock, PreferredStock, PdInCapAbovePar, PdInCapTreasuryStock, RevaluationReserves, Reserves, RetainedEarnings, AccumulatedOci, MinorityInterests],
+      []
+      )
+
+    ]
 
 instance FinType PlTyp where 
   typList = enumFrom minBound::[PlTyp]
@@ -964,16 +1008,14 @@ debit bs t v = checkCalc t $ case t of
   CurrentLoans                  -> adder v
   CurrentAdvances               -> adder v
   OtherCurrentAssets            -> adder v
-  CurrentInvestmentsBv          -> adder v
-  CurrentInvestmentsMv          -> adder v
+  CurrentInvestments            -> adder v
   RawMaterials                  -> adder v
   WorkInProgress                -> adder v
   FinishedGoods                 -> adder v
   AccountReceivables            -> adder v
   LongTermLoanAssets            -> adder v
   LongTermAdvances              -> adder v
-  LongTermInvestmentsBv         -> adder v   
-  LongTermInvestmentsMv         -> adder v
+  LongTermInvestments           -> adder v   
   OtherLongTermAssets           -> adder v 
   PlantPropertyEquipment        -> adder v
   AccumulatedDepreciation       -> adder (-v) -- Contra Account
