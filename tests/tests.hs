@@ -223,6 +223,14 @@ main = do
     , S.stringToTyp ("DisPpe"::Text) == Just S.DisPpe
     ]
 
+
+  ("Calc checks"::String) `qTest`
+    [ S.isCalc Cash =~ False
+    , S.isCalc Pat =~ True 
+
+    , False
+    ]
+
   -- print $ "Balance Sheet"
 
   let bs = S.BalanceSheet {
@@ -350,11 +358,21 @@ main = do
     , (acz !>> Pat) =~ Just 0.0
     ]
 
-  let xz = acz !>~  [ 
+  let yz = acz `S.fromListEnd`  [ 
           (Cash,                24.45)
         , (CurrentLoans,        34.56) 
+        -- , (CurrentAssets,      58.25) -- will fail as isCalc == True
         ]
 
+  let xz = acz `S.fromListNoCalcEnd`  [ 
+          (Cash,                24.45)
+        , (CurrentLoans,        34.56) 
+        , (CurrentAssets,      58.25) -- removes this during Cleaning
+        ]
+
+  ("fromListNoCalcEnd"::String) `qTest` [ (xz !>> CurrentAssets ) =~ Just 0.0  ]
+
+  -- print "yz = "; print yz
   -- print "xz = "; print xz
 
   ("Updating records"::String) `qTest` 
@@ -368,7 +386,7 @@ main = do
     , S.balShBegin xz =~ Nothing
     ]
 
-  let acz = xz !^~ [
+  let acz = xz `S.fromListBegin` [
             (Cash,                          88.68)
           , (AccumulatedDepreciation,       52.47) 
           ]
@@ -749,11 +767,11 @@ main = do
   let a0 = (acz ^. docs) V.! 0
   let a1 = (acz ^. docs) V.! 1
 
-  print $ a0  
+  -- print $ a0  
 
-  -- print $ let Just x = S.setAccount a0 in x ^. profitLoss
+  -- -- print $ let Just x = S.setAccount a0 in x ^. profitLoss
 
-  print $ S.setAccount a0
+  -- print $ S.setAccount a0
 
   -- print acz
 

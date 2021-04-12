@@ -136,8 +136,8 @@ class (Show a, Eq a, Hashable a, Ord a, Enum a) => FinType a where
   checkCalc t x = if isCalc t then error ("Calc item : "++show t) else x
   {-# INLINE checkCalc #-}
 
-
-
+  sanitizeCalc :: [(a,Double)] -> [(a,Double)]
+  sanitizeCalc = ((\x -> checkCalc (fst x) x) <$>)
 
   removeCalc :: [(a,Double)] -> [(a,Double)]
   removeCalc = filter (not . isCalc . fst)
@@ -518,7 +518,7 @@ class (FinStat a, FinType b) => GetRecords a b where
 instance GetRecords BalanceSheet BsTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
-  (!!~) x r = x & rec .~ Hm.fromList r
+  (!!~) x r = x & rec .~ Hm.fromList (sanitizeCalc r)
   (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k v (x^.rec)
   (!!%) x (k,v) = x & rec .~ Hm.insert k v (x^.rec)
   recToList x = Hm.toList (x^.rec)
@@ -526,7 +526,7 @@ instance GetRecords BalanceSheet BsTyp where
 instance GetRecords ProfitLoss PlTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
-  (!!~) x r = x & rec .~ Hm.fromList r
+  (!!~) x r = x & rec .~ Hm.fromList (sanitizeCalc r)
   (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k v (x^.rec)
   (!!%) x (k,v) = x & rec .~ Hm.insert k v (x^.rec)
   recToList x = Hm.toList (x^.rec)
@@ -534,7 +534,7 @@ instance GetRecords ProfitLoss PlTyp where
 instance GetRecords CashFlow CfTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
-  (!!~) x r = x & rec .~ Hm.fromList r
+  (!!~) x r = x & rec .~ Hm.fromList (sanitizeCalc r)
   (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k v (x^.rec)
   (!!%) x (k,v) = x & rec .~ Hm.insert k v (x^.rec)
   recToList x = Hm.toList (x^.rec)
@@ -623,9 +623,13 @@ class FinType a => GetAccount a where
   (!^>) :: Account -> a -> Maybe Double
   (!^>) = (!>>)
 
-  (!>~) :: Account -> [(a,Double)] -> Account      -- Set/Reset
-  (!^~) :: Account -> [(a,Double)] -> Account      -- Set/Reset
-  (!^~) = (!>~)
+  fromListEnd :: Account -> [(a,Double)] -> Account      -- Set/Reset
+  fromListBegin :: Account -> [(a,Double)] -> Account      -- Set/Reset
+  fromListBegin = fromListEnd
+
+  fromListNoCalcEnd :: Account -> [(a,Double)] -> Account      -- Set/Reset
+  fromListNoCalcBegin :: Account -> [(a,Double)] -> Account      -- Set/Reset
+  fromListNoCalcBegin = fromListNoCalcEnd
 
   (!>+) :: Account -> (a,Double) -> Maybe Account  -- Add/Create
   (!^+) :: Account -> (a,Double) -> Maybe Account  -- Add/Create
@@ -739,8 +743,11 @@ instance GetAccount BsTyp where
   (!^>) x t = do p <- x^.balanceSheetBegin; return $ Hm.lookupDefault 0.0 t p
   (!>>) x t = do p <- x ^. balanceSheetEnd; return $ Hm.lookupDefault 0.0 t p
 
-  (!^~) x r = x & balanceSheetBegin ?~ Hm.fromList r
-  (!>~) x r = x & balanceSheetEnd ?~ Hm.fromList r
+  fromListBegin x r = x & balanceSheetBegin ?~ Hm.fromList (sanitizeCalc r)
+  fromListEnd x r = x & balanceSheetEnd ?~ Hm.fromList (sanitizeCalc r)
+
+  fromListNoCalcBegin x r = x & balanceSheetBegin ?~ Hm.fromList (removeCalc r)
+  fromListNoCalcEnd x r = x & balanceSheetEnd ?~ Hm.fromList (removeCalc r)
 
   (!^+) x (k,v) = do 
     p <- x ^. balanceSheetBegin
@@ -761,7 +768,10 @@ instance GetAccount BsTyp where
 
 instance GetAccount PlTyp where
   (!>>) x t = do p <- x^.profitLoss; return $ Hm.lookupDefault 0.0 t p
-  (!>~) x r = x & profitLoss ?~ Hm.fromList r
+
+  fromListEnd x r = x & profitLoss ?~ Hm.fromList (sanitizeCalc r)
+
+  fromListNoCalcEnd x r = x & profitLoss ?~ Hm.fromList (removeCalc r)
 
   (!>+) x (k,v) = do 
     p <- x ^. profitLoss
@@ -774,7 +784,10 @@ instance GetAccount PlTyp where
 
 instance GetAccount CfTyp where
   (!>>) x t = do p <- x^.cashFlow; return $ Hm.lookupDefault 0.0 t p
-  (!>~) x r = x & cashFlow ?~ Hm.fromList r
+
+  fromListEnd x r = x & cashFlow ?~ Hm.fromList (sanitizeCalc r)
+
+  fromListNoCalcEnd x r = x & cashFlow ?~ Hm.fromList (removeCalc r)
 
   (!>+) x (k,v) = do 
     p <- x ^. cashFlow
