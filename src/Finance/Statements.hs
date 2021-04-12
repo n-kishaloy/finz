@@ -442,7 +442,40 @@ instance FinType CfTyp where
 
   typMap = Hm.fromList $ zip (T.pack . show <$> (typList::[CfTyp])) typList 
 
-  calcComb = []
+  calcComb = 
+    [ (CashFlowOperations,
+      [],
+      []
+      )
+    , (CashFlowInvestments,
+      [],
+      []
+      )
+    , (CashFlowFinancing,
+      [],
+      []
+      )
+    , (NetCashFlow,
+      [CashFlowOperations, CashFlowInvestments, CashFlowFinancing],
+      []
+      )
+    , (Fcff,
+      [],
+      []
+      )
+    , (Fcfs,
+      [],
+      []
+      )
+    , (Fcfe,
+      [],
+      []
+      )
+    , (Fcfd,
+      [],
+      []
+      )
+    ]
 
 data Statement = Statement
   { statementDateBegin         :: Day
@@ -519,7 +552,7 @@ instance GetRecords BalanceSheet BsTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
   (!!~) x r = x & rec .~ Hm.fromList (sanitizeCalc r)
-  (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k v (x^.rec)
+  (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k (checkCalc k v) (x^.rec)
   (!!%) x (k,v) = x & rec .~ Hm.insert k v (x^.rec)
   recToList x = Hm.toList (x^.rec)
 
@@ -527,7 +560,7 @@ instance GetRecords ProfitLoss PlTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
   (!!~) x r = x & rec .~ Hm.fromList (sanitizeCalc r)
-  (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k v (x^.rec)
+  (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k (checkCalc k v) (x^.rec)
   (!!%) x (k,v) = x & rec .~ Hm.insert k v (x^.rec)
   recToList x = Hm.toList (x^.rec)
 
@@ -535,7 +568,7 @@ instance GetRecords CashFlow CfTyp where
   (!!>) x t = Hm.lookupDefault 0.0 t (x^.rec)
   (!!?) x t = Hm.lookup t (x^.rec)
   (!!~) x r = x & rec .~ Hm.fromList (sanitizeCalc r)
-  (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k v (x^.rec)
+  (!!+) x (k,v) = x & rec .~ Hm.insertWith (+) k (checkCalc k v) (x^.rec)
   (!!%) x (k,v) = x & rec .~ Hm.insert k v (x^.rec)
   recToList x = Hm.toList (x^.rec)
 
@@ -751,19 +784,19 @@ instance GetAccount BsTyp where
 
   (!^+) x (k,v) = do 
     p <- x ^. balanceSheetBegin
-    return $ x & balanceSheetBegin ?~ Hm.insertWith (+) k v p
+    return $ x & balanceSheetBegin ?~ Hm.insertWith (+) k (checkCalc k v) p
 
   (!>+) x (k,v) = do 
     p <- x ^. balanceSheetEnd
-    return $ x & balanceSheetEnd ?~ Hm.insertWith (+) k v p
+    return $ x & balanceSheetEnd ?~ Hm.insertWith (+) k (checkCalc k v) p
 
   (!^%) x (k,v) = do 
     p <- x ^. balanceSheetBegin
-    return $ x & balanceSheetBegin ?~ Hm.insert k v p
+    return $ x & balanceSheetBegin ?~ Hm.insert k (checkCalc k v) p
 
   (!>%) x (k,v) = do 
     p <- x ^. balanceSheetEnd
-    return $ x & balanceSheetEnd ?~ Hm.insert k v p
+    return $ x & balanceSheetEnd ?~ Hm.insert k (checkCalc k v) p
 
 
 instance GetAccount PlTyp where
@@ -775,11 +808,11 @@ instance GetAccount PlTyp where
 
   (!>+) x (k,v) = do 
     p <- x ^. profitLoss
-    return $ x & profitLoss ?~ Hm.insertWith (+) k v p
+    return $ x & profitLoss ?~ Hm.insertWith (+) k (checkCalc k v) p
 
   (!>%) x (k,v) = do 
     p <- x ^. profitLoss
-    return $ x & profitLoss ?~ Hm.insert k v p
+    return $ x & profitLoss ?~ Hm.insert k (checkCalc k v) p
 
 
 instance GetAccount CfTyp where
@@ -791,11 +824,11 @@ instance GetAccount CfTyp where
 
   (!>+) x (k,v) = do 
     p <- x ^. cashFlow
-    return $ x & cashFlow ?~ Hm.insertWith (+) k v p
+    return $ x & cashFlow ?~ Hm.insertWith (+) k (checkCalc k v) p
 
   (!>%) x (k,v) = do 
     p <- x ^. cashFlow
-    return $ x & cashFlow ?~ Hm.insert k v p
+    return $ x & cashFlow ?~ Hm.insert k (checkCalc k v) p
 
 
 -- |Extract Balance Sheet for Begin period

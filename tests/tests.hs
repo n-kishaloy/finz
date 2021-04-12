@@ -206,7 +206,7 @@ main = do
     [ Cash =~ Cash
     , Cash /~ CurrentAdvances
     , OperatingRevenue =~ OperatingRevenue
-    , CashFlowFinancing /~ CashFlowInvestments
+    , CashFlowFinancing /~ InterestFin
     ]
   
   ("String to Types"::String) `qTest` 
@@ -216,7 +216,7 @@ main = do
 
     , S.stringToTyp ("OtherIncome"::Text) == Just S.OtherIncome
     , S.stringToTyp ("OthIncome"::Text) == (Nothing::Maybe PlTyp)
-    , S.stringToTyp ("Pat"::Text) == Just S.Pat
+    , S.stringToTyp ("GainsLossesActurial"::Text) == Just S.GainsLossesActurial
 
     , S.stringToTyp ("Fcfd"::Text) == Just S.Fcfd
     , S.stringToTyp ("FcFd"::Text) == (Nothing::Maybe CfTyp)
@@ -228,7 +228,6 @@ main = do
     [ S.isCalc Cash =~ False
     , S.isCalc Pat =~ True 
 
-    , False
     ]
 
   -- print $ "Balance Sheet"
@@ -282,9 +281,9 @@ main = do
 
   ("Profit and Loss"::String) `qTest` 
     [ pl !!> OperatingRevenue =~ 58.35
-    , pl !!> Pat =~ 0.0
+    , pl !!> GainsLossesActurial =~ 0.0
     , pl !!? OperatingRevenue =~ Just 58.35
-    , isNothing $ pl !!? Pat
+    , isNothing $ pl !!? GainsLossesActurial
     ]
 
   let cf = S.CashFlow {
@@ -293,7 +292,7 @@ main = do
       S.cashFlowStatuz = S.Unset,
       S.cashFlowRec = 
         Hm.fromList [ 
-              (S.CashFlowOperations,  38.35)
+              (S.OtherCfOperations ,  38.35)
           ,   (S.OtherCfInvestments,  48.58) 
         ]
     }
@@ -306,10 +305,10 @@ main = do
   -- print cf
 
   ("Cash Flow"::String) `qTest` 
-    [ cf !!> CashFlowOperations =~ 38.35
-    , cf !!> CashFlowInvestments =~ 0.0
-    , cf !!? CashFlowOperations =~ Just 38.35
-    , isNothing $ cf !!? CashFlowInvestments 
+    [ cf !!> OtherCfOperations  =~ 38.35
+    , cf !!> InterestFin =~ 0.0
+    , cf !!? OtherCfOperations  =~ Just 38.35
+    , isNothing $ cf !!? InterestFin 
     , cf !!> DisPpe =~ 23.58
     , cf !!> OtherCfInvestments =~ 68.58
     ]
@@ -319,11 +318,9 @@ main = do
           (DisPpe, 22.25), (CfInvestmentDividends, 78.58)
           ]
 
-  -- print cf
-
   ("recToList"::String) `qTest` [(S.recToList cf :: [(CfTyp,Double)]) =~ [
-    (DisPpe,22.25),(CfInvestmentDividends,78.58),
-    (OtherCfInvestments,68.58),(CashFlowOperations,38.35)]]
+    (DisPpe,22.25),(CfInvestmentDividends,78.58),(OtherCfOperations ,38.35),
+    (OtherCfInvestments,68.58)]]
 
   -- print "Account"
 
@@ -343,7 +340,7 @@ main = do
       ]
     , S.accountCashFlow = 
       Just $ Hm.fromList [ 
-        (S.CashFlowOperations,  38.35)
+        (S.OtherCfOperations ,  38.35)
       , (S.OtherCfInvestments,  48.58) 
       ]
     }
@@ -355,7 +352,7 @@ main = do
     , (acz !>> CurrentLeasesLiability) =~ Just 0.0
     , (acz !^> Cash) =~ Nothing
     , (acz !^> OperatingRevenue) =~ Just 58.35
-    , (acz !>> Pat) =~ Just 0.0
+    , (acz !>> GainsLossesActurial) =~ Just 0.0
     ]
 
   let yz = acz `S.fromListEnd`  [ 
@@ -402,13 +399,15 @@ main = do
   let Just acz = Just pz >>= (!>+ (Cash, 10.0)) >>= 
         (!>+ (CurrentAdvances, 15.0)) >>= 
         (!>+ (OperatingRevenue, -5.0)) >>=
-        (!>+ (CashFlowOperations, 15.0)) >>=
-        (!>+ (CashFlowInvestments, 25.0)) >>=
+        (!>+ (OtherCfOperations , 15.0)) >>=
+        (!>+ (InterestFin, 25.0)) >>=
         (!^+ (Cash, 1.32)) >>=
         (!^+ (Cash, 0.00)) >>=
+        -- (!^+ (CurrentAssets, 0.00)) >>= -- isCalc == True
+        -- (!>+ (CurrentAssets, 0.00)) >>= -- isCalc == True
         (!^+ (CurrentPayables, 0.00)) >>=
         (!^+ (CurrentAdvances, 32.5)) >>=
-        (!^+ (CashFlowInvestments, 5.0))
+        (!^+ (InterestFin, 5.0))
 
   ("Updating records"::String) `qTest` 
     [ acz !^> Cash =~ Just 90.0
@@ -420,20 +419,20 @@ main = do
   -- print "acz = "; print acz
 
   let Just xz = (acz `addToBeginItems` [(Cash, 10.0), (CurrentReceivables, 15.0)]) >>= 
-        (`addToBeginItems` [(OperatingRevenue, -3.35), (Pat, 2.58)]) >>=
+        (`addToBeginItems` [(OperatingRevenue, -3.35), (ExciseStaxLevy, 2.58)]) >>=
         (`addToBeginItems` [(Cash, 15.0), (AccumulatedDepreciation, -2.47)]) >>=
-        (`subToBeginItems` [(CashFlowFinancing, -12.0), (CashFlowInvestments, 5.0)]) >>=
+        (`subToBeginItems` [(StockRepurchase, -12.0), (InterestFin, 5.0)]) >>=
         (`addToEndItems` [(Cash, 0.55), (CurrentAdvances, -2.5), (AccumulatedDepreciation, 12.7)]) >>=
-        (`addToEndItems` [(CashFlowFinancing, -2.0), (Fcff, 2.73)]) >>=
-        (`addToEndItems` [(OperatingRevenue, -15.0), (Pbitda, 3.58)])
+        (`addToEndItems` [(StockRepurchase, -2.0), (DonorContribution, 2.73)]) >>=
+        (`addToEndItems` [(OperatingRevenue, -15.0), (ResearchNDevelopment, 3.58)])
 
   ("Add List of entries"::String) `qTest` 
     [ xz !>> Cash =~ Just 35.0
     , xz !^> Cash =~ Just 115.0
     , xz !^> OperatingRevenue =~ Just 35.0
     , xz !>> OtherExpenses =~ Just 41.58
-    , xz !^> Pat =~ Just 2.58
-    , xz !>> CashFlowFinancing =~ Just 10.0
+    , xz !^> ExciseStaxLevy =~ Just 2.58
+    , xz !>> StockRepurchase =~ Just 10.0
     , xz !^> Pbitx =~ Just 0.0
     , xz !^> AccumulatedDepreciation =~ Just 50.0
     ]
@@ -445,11 +444,11 @@ main = do
         (!>% (AccumulatedOci, 24.25)) >>=
         (!^% (AccumulatedOci, 22.56)) >>=
         (!^% (OperatingRevenue, 93.57)) >>=
-        (!^% (Pbt, 23.65)) >>=
-        (!^% (Fcfd, 15.89)) >>=
-        (!>% (CashFlowFinancing, -3.50))
+        (!^% (TaxesDeferred, 23.65)) >>=
+        (!^% (AcqEquityAssets, 15.89)) >>=
+        (!>% (StockRepurchase, -3.50))
 
-  let Just xz = (acz `updateBeginItems` [(Pat, 22.65), (Depreciation, 56.58)]) >>=
+  let Just xz = (acz `updateBeginItems` [(GainsLossesActurial, 22.65), (Depreciation, 56.58)]) >>=
         (`updateEndItems` [(CurrentLoans, 78.02), (IntangibleAssets, 65.43)]) >>=
         (`subToEndItems` [(Cash, 5.0), (AccumulatedOci, 1.0)]) >>=
         (`updateEndItems` [(NonOperatingRevenue, 67.65), (Amortization, 54.32)]) >>=
@@ -459,7 +458,7 @@ main = do
     [ xz !>> Cash =~ Just 10.0
     , xz !^> Cash =~ Just 34.0
     , xz !>> StockSales =~ Just 22.54
-    , xz !^> Fcfd =~ Just 15.89
+    , xz !^> AcqEquityAssets =~ Just 15.89
     , xz !>> AccumulatedOci =~ Just 23.25
     , xz !^> DisPpe =~ Just 0.0
     , xz !^> AccumulatedOci =~ Just 22.56
@@ -506,7 +505,7 @@ main = do
       S.cashFlowStatuz = S.Unset,
       S.cashFlowRec = 
         Hm.fromList [ 
-              (S.CashFlowOperations,  38.35)
+              (S.OtherCfOperations ,  38.35)
           ,   (S.OtherCfInvestments,  48.58) 
         ]
     }
@@ -550,7 +549,7 @@ main = do
       S.profitLossRec = 
         Hm.fromList [ 
               (S.OperatingRevenue,                62.58)
-          ,   (S.Pat,                             12.57) 
+          ,   (S.GainsLossesActurial,                             12.57) 
           ]
     }
 
@@ -562,7 +561,7 @@ main = do
       S.cashFlowStatuz = S.Unset,
       S.cashFlowRec = 
         Hm.fromList [ 
-              (S.CashFlowInvestments,               63.45)
+              (S.InterestFin,               63.45)
           ,   (S.Fcfd,                              72.12) 
           ]
     }
@@ -588,14 +587,15 @@ main = do
   let Just plRec = S.jsonToRec $ T.replace "54.32" "-28.78" plj 
 
   qCheck "Err " $ Hm.lookup Amortization plRec =~ Just (-28.78)
-  qCheck "Err " $ isNothing (S.jsonToRec $ T.replace "Pbt" "Ptb" plj :: Maybe S.PlMap) 
+  qCheck "Err " $ isNothing (S.jsonToRec $ T.replace "TaxesDeferred" "Ptb" plj :: Maybe S.PlMap) 
 
   let cfj = S.recToJSON $ cf ^. rec
   let Just cfRec = S.jsonToRec $ T.replace "54.32" "-28.78" cfj 
   
   -- print "cfj"; print $ cfj
-  qCheck "Err " $ Hm.lookup CashFlowInvestments cfRec =~ Just 25.0
-  qCheck "Err " $ isNothing (S.jsonToRec $ T.replace "Fcff" "Fcfr" cfj :: Maybe S.CfMap) 
+  qCheck "Err 1" $ Hm.lookup InterestFin cfRec =~ Just 25.0
+  -- print cfj
+  qCheck "Err 2" $ isNothing (S.jsonToRec $ T.replace "StockSales" "Fcfr" cfj :: Maybe S.CfMap) 
 
   let pz = xz & balanceSheetBegin .~ Nothing
   -- print "pz = "; print pz
@@ -605,13 +605,15 @@ main = do
 
   -- let gz = T.replace "cashFlow" "csahFl" jz
 
-  qCheck "Err " $ S.jsonToAccount (T.replace "cashFlow" "csahFl" jz)=~ Nothing
-  qCheck "Err " $ S.jsonToAccount (T.replace "Fcfd" "FcFd" jz) =~ Nothing
-  qCheck "Err " $ (S.jsonToAccount (T.replace "Fcfd" "Fcfe" $ jz) >>= \x -> x !^> Fcfe) =~ Just 15.89
+  qCheck "Err 3" $ S.jsonToAccount (T.replace "cashFlow" "csahFl" jz)=~ Nothing
+  -- print jz
+  qCheck "Err 4" $ S.jsonToAccount (T.replace "OtherCfOperations" "FcFd" jz) =~ Nothing
+  qCheck "Err 5" $ (S.jsonToAccount (T.replace "AcqEquityAssets" "ChangeLiabilities" $ jz) >>= \x -> x !^> ChangeLiabilities) =~ Just 15.89
+  qCheck "Err 6" $ (S.jsonToAccount (T.replace "3.58" "-8.95" $ jz) >>= \x -> x !^> ResearchNDevelopment) =~ Just (-8.95)
+  qCheck "Err 7" $ S.jsonToAccount (T.replace "3.58" "-8.9x5" $ jz) =~ Nothing
+  qCheck "Err 8" $ isNothing (pz ^. balanceSheetBegin) 
 
-  qCheck "Err " $ (S.jsonToAccount (T.replace "3.58" "-8.95" $ jz) >>= \x -> x !^> Pbitda) =~ Just (-8.95)
-  qCheck "Err " $ S.jsonToAccount (T.replace "3.58" "-8.9x5" $ jz) =~ Nothing
-  qCheck "Err " $ isNothing (pz ^. balanceSheetBegin) 
+
 
   -- print $ "Equality of records / account etc"
 
@@ -632,13 +634,13 @@ main = do
   let Just pz = xz !^% (Cash, 34.0)
   qCheck "Err " $ pz =~ xz
 
-  let Just pz = xz !^% (Pbt, 34.0)
+  let Just pz = xz !^% (TaxesDeferred, 34.0)
   qCheck "Err " $ pz /~ xz
 
-  let Just pz = xz !^% (Fcfe, 2.65)
+  let Just pz = xz !^% (ChangeLiabilities, 2.65)
   qCheck "Err " $ pz /~ xz
 
-  let Just pz = xz !^% (Fcfe, 0.0)
+  let Just pz = xz !^% (ChangeLiabilities, 0.0)
   qCheck "Err " $ pz =~ xz
 
   let pz = xz & balanceSheetBegin .~ Nothing
@@ -680,7 +682,7 @@ main = do
   let c1 = cf
   qCheck "Err " $ cf =~ c1
 
-  let c1 = cf !!+ (Fcfe, 2.3)
+  let c1 = cf !!+ (ChangeLiabilities, 2.3)
   qCheck "Err " $ c1 /~ cf
   let c1 = cf & dateBegin .~ fromGregorian 2015 03 31
   qCheck "Err " $ c1 /~ cf
@@ -704,7 +706,7 @@ main = do
   let Just cz = xz `updateEndItems` [
           (ChangeInventories, 34.34)
         , (ChangeReceivables, 23.21)
-        , (Fcfe, 0.0)
+        , (ChangeLiabilities, 0.0)
         ]
 
   -- print $ "cz = "; print $ cz
@@ -742,7 +744,7 @@ main = do
         , (CurrentPayables, CurrentTaxPayables, 2.578914584)
         , (RetainedEarnings, AccumulatedDepreciation, 3.000000008)
 
-        ]) !^% (Fcfe, -0.3) >>= (!^% (Pat, -0.03)) >>= (!^% (CommonStock, 0.09))
+        ]) !^% (ChangeLiabilities, -0.3) >>= (!^% (GainsLossesActurial, -0.03)) >>= (!^% (CommonStock, 0.09))
 
   let cz = S.cleanAccount bz
 
