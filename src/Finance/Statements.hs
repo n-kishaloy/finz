@@ -44,7 +44,7 @@ module Finance.Statements
 , HasBalanceSheetEnd (..), HasProfitLoss (..), HasCashFlow (..)
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..), accountToJson, jsonToAccount, companyToJson, jsonToCompany
-, FinType (..), FinStat
+, FinType (..), FinDerived (..)
 , checkBsMap, checkPlMap, checkCfMap
 , getEOMonth
 , credit, debit, transact, transactSeries
@@ -148,9 +148,6 @@ class (Show a, Eq a, Hashable a, Ord a, Enum a) => FinType a where
   typMap :: Hm.HashMap Text a
 
 
-
-class FinStat a
-
 data Statuz = Unset | Actual | Estimated deriving (Show, Eq)
 
 {-|
@@ -228,7 +225,7 @@ data BalanceSheet = BalanceSheet
   { balanceSheetDatez       :: Day
   , balanceSheetStatuz      :: Statuz
   , balanceSheetRec         :: BsMap
-  } deriving (Show, FinStat)
+  } deriving (Show)
 
 makeFields ''BalanceSheet
 
@@ -275,7 +272,7 @@ data PlTyp =
   FvChangeAvlSale               |
   OtherDeferredTaxes            |
   OtherComprehensiveIncome      |
-  TotalComprehensiveIncome 
+  TotalComprehensiveIncome      
   deriving (Eq, Show, Ord, Generic, Enum, Bounded)
 
 instance Hashable PlTyp
@@ -286,7 +283,7 @@ data ProfitLoss = ProfitLoss
   , profitLossDateEnd       :: Day
   , profitLossStatuz        :: Statuz
   , profitLossRec           :: PlMap
-  } deriving (Show, FinStat)
+  } deriving (Show)
 
 makeFields ''ProfitLoss
 
@@ -335,9 +332,19 @@ data CashFlow = CashFlow
   , cashFlowDateEnd         :: Day
   , cashFlowStatuz          :: Statuz
   , cashFlowRec             :: CfMap
-  } deriving (Show, FinStat)
+  } deriving (Show)
 
 makeFields ''CashFlow
+
+
+data FinDerived = 
+  Taxrate                         |
+  CurrentRatio                    |
+  AcidRatio
+  deriving (Eq, Show, Ord, Generic, Enum, Bounded)
+
+instance Hashable FinDerived
+type FinDerivedMap = Hm.HashMap FinDerived Double
 
 instance FinType BsTyp where 
   typList = enumFrom minBound::[BsTyp]
@@ -531,7 +538,7 @@ ProfitLoss (Revenue, Pat etc.) and CashFlow (FCFF, FCFE, etc).
 *@addToItems =@ Uses @!!+@ to Add / Create using a List
 *@updateToItems =@ Uses @!!%@ to Update / Create using a List
 -}
-class (FinStat a, FinType b) => GetRecords a b where
+class (FinType b) => GetRecords a b where
   (!!>) :: a -> b -> Double         -- Get
   (!!?) :: a -> b -> Maybe Double   -- Maybe Get
   (!!~) :: a -> [(b,Double)] -> a   -- Set/Reset 
@@ -610,13 +617,14 @@ infix 4 `eqlRec`, `notEqlRec`, `maybeEqlRec`, `notMaybeEqlRec`
 
 -- |Financial statements corresponding to a period between __DateBegin__ and __DateEnd__. 
 data Account = Account
-  { accountDateBegin         :: Day
-  , accountDateEnd           :: Day
-  , accountBalanceSheetBegin :: Maybe BsMap
-  , accountBalanceSheetEnd   :: Maybe BsMap
-  , accountProfitLoss        :: Maybe PlMap
-  , accountCashFlow          :: Maybe CfMap
-  } deriving (FinStat)
+  { accountDateBegin          :: Day
+  , accountDateEnd            :: Day
+  , accountBalanceSheetBegin  :: Maybe BsMap
+  , accountBalanceSheetEnd    :: Maybe BsMap
+  , accountProfitLoss         :: Maybe PlMap
+  , accountCashFlow           :: Maybe CfMap
+  , accountFinDeriv           :: FinDerivedMap
+  } 
 
 makeFields ''Account
 
@@ -637,7 +645,8 @@ For BalanceSheet
 For ProfitLoss and CashFlow, either may be used. 
 
 *@!^> & !>> =@ Get data 
-*@!^~ & !^~ =@ Set / Reset. Old data is lost
+*@fromListBegin & fromListEnd=@ Set / Reset. Old data is lost
+*@fromListCalcBegin & fromListCalcEnd=@ Set / Reset. Old data is lost. However, all calculated elements are removed before setting. 
 *@!^+ & !>+ =@ Add / Create data. If old data exists Add, otherwise Create
 *@!^- & !>- =@ Subtract / Create -ve data. If old data exists Subtract, otherwise Create -ve valued entry.
 *@!^% & !>% =@ Update / Create data. If old data exists Update, otherwise Create
@@ -713,8 +722,8 @@ class FinType a => GetAccount a where
   jRec x = Hm.fromList <$> foldl' f (Just []) (Hm.toList x) 
     where
     f :: GetAccount a => Maybe [(a,Double)] -> (Text,As.Value) -> Maybe [(a,Double)]
-    f (Just x) (u, As.Number v) = case stringToTyp u of 
-      Just p -> Just $ (p,toRealFloat v::Double):x 
+    f (Just y) (u, As.Number v) = case stringToTyp u of 
+      Just p -> Just $ (p,toRealFloat v::Double):y 
       _ -> Nothing
     f _ _ = Nothing
 
@@ -847,13 +856,16 @@ profLoss x = ProfitLoss (x^.dateBegin) (x^.dateEnd) Actual <$> (x^.profitLoss)
 cashFl :: Account -> Maybe CashFlow
 cashFl x = CashFlow (x ^. dateBegin) (x ^. dateEnd) Actual <$> (x ^. cashFlow) 
 
+financeDeriv :: Maybe BsMap -> Maybe BsMap -> Maybe PlMap -> Maybe CfMap -> FinDerivedMap
+financeDeriv bB bE pl cf = Hm.empty 
+
 -- |Combine Begin & End Balance Sheet, Profit Loss Statement and Cash Flow 
 -- Statement to create Account
 mkAccount :: Maybe BalanceSheet -> Maybe BalanceSheet -> Maybe ProfitLoss -> Maybe CashFlow -> Maybe Account
 mkAccount _ _ Nothing _ = Nothing
 mkAccount bsBeg bsEnd (Just pl) cf = 
   if d1 == dtbs1 && d2 == dtbs2 && d1 == dtcf1 && d2 == dtcf2
-  then Just $ Account d1 d2 bsBg bsEn (Just (pl^.rec)) cfMp
+  then Just $ Account d1 d2 bsBg bsEn (Just (pl^.rec)) cfMp (financeDeriv bsBg bsEn (Just (pl^.rec)) cfMp)
   else Nothing
   where
     d1 = pl ^. dateBegin
@@ -882,7 +894,7 @@ cleanRecord = Hm.fromList . filter ((/=0.0).snd) . (second (fromInteger.round) <
 
 -- |@cleanAccount ac = Clean all items in Account from the HashMaps@
 cleanAccount :: Account -> Account
-cleanAccount ac = Account (ac ^. dateBegin) (ac ^. dateEnd) bB bE pl cf where
+cleanAccount ac = Account (ac ^. dateBegin) (ac ^. dateEnd) bB bE pl cf (ac ^. finDeriv) where
   bB  = cleanRecord <$> ac ^. balanceSheetBegin 
   bE  = cleanRecord <$> ac ^. balanceSheetEnd 
   pl  = cleanRecord <$> ac ^. profitLoss 
@@ -937,7 +949,7 @@ jAcc rz = do
   plX <- Hm.lookup "profitLoss" rz >>= parseObj 
   cfX <- Hm.lookup "cashFlow" rz >>= parseObj 
 
-  return $ Account dBeg dEnd bsB bsE plX cfX
+  return $ Account dBeg dEnd bsB bsE plX cfX (financeDeriv bsB bsE plX cfX)
 
 -- |Convert JSON to Account
 jsonToAccount :: Text -> Maybe Account
@@ -949,7 +961,7 @@ getEOMonth x = do
   let (u,v,_) = toGregorian y
   return $ fromGregorian u v (if v == 6 || v == 9 then 30 else 31) 
 
-class FinStat a => GetStatement a where
+class GetStatement a where
   toJsonz :: a -> String
   fromJsonz :: String -> a
 
@@ -1171,7 +1183,7 @@ checkAccountVec vx = foldl' f (checkAccount (vx!0)) ([0..(length vx - 2)]::V.Vec
 
 -- |Check Account for consistency
 checkAccount :: Account -> Bool
-checkAccount (Account _ _ bB bE pl cf) = 
+checkAccount (Account _ _ bB bE pl cf _) = 
   let
     ckBS (Just b) = checkBsMap b
     ckBS Nothing  = True 
@@ -1182,8 +1194,13 @@ checkAccount (Account _ _ bB bE pl cf) =
     ckCF (Just c) = checkCfMap c
     ckCF Nothing  = True 
 
+    ckComb _ Nothing _ _ = True 
+    ckComb Nothing _ _ _ = True
+    ckComb _ _ _ Nothing = True
+    ckComb (Just _) (Just _) (Just _) (Just _) = True 
+    ckComb _ _ _ _ = False
   in
-    ckBS bB && ckBS bE && ckPL pl && ckCF cf
+    ckBS bB && ckBS bE && ckPL pl && ckCF cf && ckComb bB bE pl cf
 -- Checks BalanceSheet >> ProfitLoss >> CashFlow >> Combination
 
 -- |Check connecting Dates & BalanceSheet then all Account
@@ -1191,7 +1208,8 @@ checkCompany :: Company -> Bool
 checkCompany cp = checkAccountVec (cp ^. docs)
 
 reduceAccount :: Account -> Account
-reduceAccount (Account dB dE bB bE pl cf) = Account dB dE bB1 bE1 pl1 cf1 where
+reduceAccount (Account dB dE bB bE pl cf fd) = Account dB dE bB1 bE1 pl1 cf1 fd
+  where
   bB1 = reduceMap bB 
   bE1 = reduceMap bE 
   pl1 = reduceMap pl 
@@ -1205,11 +1223,13 @@ reduceCompany (Company cd af cn d0 sp rt bt) =
   Company cd af cn (reduceAccountVec d0) sp rt bt
 
 setAccount :: Account -> Account
-setAccount (Account dB dE bB bE pl cf) = Account dB dE bB1 bE1 pl1 cf1 where
+setAccount (Account dB dE bB bE pl cf _) = Account dB dE bB1 bE1 pl1 cf1 fd1 
+  where
   bB1 = setMap bB 
   bE1 = setMap bE 
   pl1 = setMap pl 
   cf1 = setMap cf 
+  fd1 = financeDeriv bB1 bE1 pl1 cf1
 
 setAccountVec :: V.Vector Account -> V.Vector Account
 setAccountVec = (setAccount <$>)

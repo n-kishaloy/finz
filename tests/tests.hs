@@ -343,6 +343,7 @@ main = do
         (S.OtherCfOperations ,  38.35)
       , (S.OtherCfInvestments,  48.58) 
       ]
+    , S.accountFinDeriv = Hm.empty 
     }
 
   -- print acz

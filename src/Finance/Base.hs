@@ -266,7 +266,7 @@ xpv (d1, f) d0 r = f / (1+r)**(d1 `yearFrac` d0)
 *r = annual rate of return
 -}
 xnpv :: DTrend -> Day -> Double -> Double
-xnpv tr d0 r = V.foldl' (\pv (d1,cf) -> pv + cf/r1**(d1 `yearFrac` d0)) 0.0 tr 
+xnpv tr d0 r = V.foldl' (\p (d1,cf) -> p + cf/r1**(d1 `yearFrac` d0)) 0.0 tr 
   where r1 = 1+r
 
 xirr :: DTrend -> Maybe Double
