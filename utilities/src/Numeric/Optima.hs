@@ -9,13 +9,19 @@ module Numeric.Optima
 , lineSearch
 , lineOptima
 , conjGradPR
+, qsort
 ) where 
 
 import Numeric.Utils (dot,(+^), (-^), (*^), DVec)
 import Data.Approx
 import Data.Functor ((<&>))
 
+import Control.Monad (when)
+
 import qualified Data.Vector.Unboxed as U
+import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as MV
+import qualified Data.Vector.Unboxed.Mutable as MU
 
 import qualified Numeric.Utils as Nu
 
@@ -87,8 +93,7 @@ lineSearch f av bv la lb = findSoln 0 la x1 x2 lb fa f1 f2 fb
                  in findSoln (n+1) xa xd x1 x2 fa (fx xd) f1 f2 
 
 bPhase :: (DVec -> Double) -> DVec -> DVec -> Maybe (Double, Double)
-bPhase f av zv = if fm > fx 0.0 then Nothing else findSoln 0 0.0 m b d fm fb
-  where   
+bPhase f av zv = if fm > fx 0.0 then Nothing else findSoln (0::Int) 0.0 m b d fm fb where   
   fx = fAbx f av zv; d = 1e-4; m = d; b = m + d; fm = fx m; fb = fx b
 
   findSoln 100 _ _ _ _ _ _ = Nothing
@@ -96,3 +101,30 @@ bPhase f av zv = if fm > fx 0.0 then Nothing else findSoln 0 0.0 m b d fm fb
     |fb > fm   =   Just (a, b)
     |otherwise =   findSoln (n+1) m b b' d' fb (fx b') 
     where d' = d * 2.0; b' = b + d'
+
+qsort :: Ord a => V.Vector a -> V.Vector a
+qsort = V.modify $ \x -> qHelper x 0 (MV.length x - 1) where
+
+    usSwap v i j = do 
+      xi <- MV.unsafeRead v i; xj <- MV.unsafeRead v j
+      MV.unsafeWrite v j xi; MV.unsafeWrite v i xj
+
+    qHelper v low high = when (low < high) $ do
+      pivot <- MV.unsafeRead v high
+      split <- partition v low (high-1) pivot high 
+      qHelper v low (split-1) 
+      qHelper v (split+1) high 
+  
+    partition v lo hi pv ph=if lo==hi then do usSwap v lo ph; return lo else do
+      let 
+        pLo l = MV.unsafeRead v l >>= \t -> if (l > hi) || (t >= pv) 
+          then return l else pLo (l+1)
+
+        pHi h = MV.unsafeRead v h >>= \t -> if (lo > h) || (t <= pv) 
+          then return h else pHi (h-1)
+
+      lo' <- pLo lo; hi' <- pHi hi 
+
+      if lo' > hi' then do usSwap v lo' ph; return lo'      
+      else do usSwap v lo' hi'; partition v (lo'+1) (hi'-1) pv ph
+

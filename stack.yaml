@@ -30,6 +30,9 @@ resolver: lts-17.2
 #   - auto-update
 #   - wai
 
+ghc-options:
+  "$everything": -haddock
+
 packages:
 - .
 - ./utilities

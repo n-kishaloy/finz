@@ -29,6 +29,9 @@ resolver: lts-15.5
 #   - auto-update
 #   - wai
 
+ghc-options:
+  "$everything": -haddock
+
 packages:
 - .
 # Dependency packages to be pulled from upstream that are not in the resolver.

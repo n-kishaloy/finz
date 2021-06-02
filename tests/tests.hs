@@ -13,6 +13,7 @@ import Data.Approx ( Approx((=~), (/~)) )
 
 import qualified Data.Vector.Unboxed as U
 import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed.Mutable as MU
 
 import qualified Finance.Base as F
 import qualified Finance.Statements as S
@@ -33,6 +34,7 @@ import qualified Data.Text as T
 import Data.Maybe (isNothing)
 
 import Control.Lens ((^.),(.~),(&),(?~))
+import Control.Monad.ST ( runST )
 
 import Data.List (foldl')
 
@@ -65,6 +67,10 @@ main = do
 
   let v1 = U.fromList [1.2,3.4,4.5] :: U.Vector Double
   let v2 = U.fromList [2.5,3.6,1.2] :: U.Vector Double
+
+  -- let p = V.fromList ([26,27,42,10,14,19,44,33,27,44,35,31,10,44]::[Integer]) 
+  -- print $ Op.qsort p 
+  -- print p
 
   ("Vector maths"::String) `qTest` 
     [ v1 `dot` v2 =~ 20.64
@@ -218,7 +224,7 @@ main = do
     , S.stringToTyp ("OthIncome"::Text) == (Nothing::Maybe PlTyp)
     , S.stringToTyp ("GainsLossesActurial"::Text) == Just S.GainsLossesActurial
 
-    , S.stringToTyp ("Fcfd"::Text) == Just S.Fcfd
+    , S.stringToTyp ("NetCashFlow"::Text) == Just S.NetCashFlow
     , S.stringToTyp ("FcFd"::Text) == (Nothing::Maybe CfTyp)
     , S.stringToTyp ("DisPpe"::Text) == Just S.DisPpe
     ]
@@ -318,11 +324,9 @@ main = do
           (DisPpe, 22.25), (CfInvestmentDividends, 78.58)
           ]
 
-  ("recToList"::String) `qTest` [(S.recToList cf :: [(CfTyp,Double)]) =~ [
-    (DisPpe,22.25),(CfInvestmentDividends,78.58),(OtherCfOperations ,38.35),
-    (OtherCfInvestments,68.58)]]
+  ("recToList"::String) `qTest` [(S.recToList cf :: [(CfTyp,Double)]) =~ [(OtherCfOperations,38.35),(DisPpe,22.25),(CfInvestmentDividends,78.58),(OtherCfInvestments,68.58)]]
 
-  -- print "Account"
+  -- print $ (S.recToList cf :: [(CfTyp,Double)])
 
   let acz = S.Account {
       S.accountDateBegin = fromGregorian 2018 3 31
@@ -343,7 +347,7 @@ main = do
         (S.OtherCfOperations ,  38.35)
       , (S.OtherCfInvestments,  48.58) 
       ]
-    , S.accountFinDeriv = Hm.empty 
+    , S.accountFinOther = Hm.empty 
     }
 
   -- print acz
@@ -511,7 +515,7 @@ main = do
         ]
     }
 
-  let Just mka = S.mkAccount b1 b2 pl cf
+  let Just mka = S.mkAccount b1 b2 pl cf Hm.empty 
   -- print $ "spl"; print $ S.splitAccount mka
 
   let Just ska = mka `updateBeginStatement` S.BalanceSheet {
@@ -563,17 +567,17 @@ main = do
       S.cashFlowRec = 
         Hm.fromList [ 
               (S.InterestFin,               63.45)
-          ,   (S.Fcfd,                              72.12) 
+          ,   (S.DisPpe,                              72.12) 
           ]
     }
 
-  qCheck "Err " $ (ska !^> S.Fcfd) =~ Just 72.12
+  qCheck "Err " $ (ska !^> S.DisPpe =~ Just 72.12)
 
   -- print "mka"; print mka
   -- print "ska"; print ska
 
   -- print "JSON"
-  let (Just b1, Just b2, Just pl, Just cf) = S.splitAccount xz
+  let (Just b1, Just b2, Just pl, Just cf, _) = S.splitAccount xz
 
   let b1j = S.recToJSON $ b1 ^. rec
   let b1jMod = T.replace "34.0" "-57.58" b1j
@@ -610,8 +614,8 @@ main = do
   -- print jz
   qCheck "Err 4" $ S.jsonToAccount (T.replace "OtherCfOperations" "FcFd" jz) =~ Nothing
   qCheck "Err 5" $ (S.jsonToAccount (T.replace "AcqEquityAssets" "ChangeLiabilities" $ jz) >>= \x -> x !^> ChangeLiabilities) =~ Just 15.89
-  qCheck "Err 6" $ (S.jsonToAccount (T.replace "3.58" "-8.95" $ jz) >>= \x -> x !^> ResearchNDevelopment) =~ Just (-8.95)
-  qCheck "Err 7" $ S.jsonToAccount (T.replace "3.58" "-8.9x5" $ jz) =~ Nothing
+  qCheck "Err 6" $ (S.jsonToAccount (T.replace "3.58" "-8.95" jz) >>= \x -> x !^> ResearchNDevelopment) =~ Just (-8.95)
+  qCheck "Err 7" $ S.jsonToAccount (T.replace "3.58" "-8.9x5" jz) =~ Nothing
   qCheck "Err 8" $ isNothing (pz ^. balanceSheetBegin) 
 
 
@@ -621,8 +625,8 @@ main = do
   let rb = Hm.fromList [(Cash, 10.23), (CurrentAdvances, 56.25), (AccountPayables, 0.0)] :: S.BsMap
   let tb = Hm.fromList [(Cash, 10.23), (CurrentAdvances, 56.25)] :: S.BsMap
 
-  qCheck "Err " $ rb `eqlRec` tb
-  qCheck "Err " $ tb `eqlRec` rb
+  qCheck "Err 9" $ rb `eqlRec` tb
+  qCheck "Err10" $ tb `eqlRec` rb
 
   let rb = Hm.fromList [(Cash, 10.23), (AccumulatedDepreciation, 56.25), (AccountPayables, 0.0)] :: S.BsMap
 
@@ -658,7 +662,7 @@ main = do
   let xz = pz & dateBegin .~ (let Just x = S.getEOMonth "2018-05-15" in x)
   qCheck "Err " $ pz /~ xz
 
-  let (bBg, Just bEd, Just pl, Just cf) = S.splitAccount xz
+  let (bBg, Just bEd, Just pl, Just cf, _) = S.splitAccount xz
 
   qCheck "Err " $ bBg =~ Nothing
 
@@ -770,7 +774,9 @@ main = do
   let a0 = (acz ^. docs) V.! 0
   let a1 = (acz ^. docs) V.! 1
 
-  -- print $ a0  
+  -- print $ S.setAccount a0
+
+  -- print $ S.commonSizeAccount $ S.setAccount a0  
 
   -- -- print $ let Just x = S.setAccount a0 in x ^. profitLoss
 

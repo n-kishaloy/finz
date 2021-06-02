@@ -25,7 +25,7 @@ module Finance.Base
   , pv, pvm, pvc, pvAnnuity, pvAnnuityCont, fvAnnuity, pmt 
   , fmt, fv, fvm, fvc 
   , effectiveRate, effectiveRateCont
-  , npv, npvN, npvT, npvNT, irr, virr, sharpe
+  , npv, npvN, npvT, npvNT, irr, virr, sharpe, r2Beta, beta2R
   , DayData, TrendData, DTrend, listToDTrend, xnpv, xirr, xpv
   ) where
 
@@ -338,3 +338,16 @@ Sharpe ratio where:
 sharpe :: Double -> Double -> Double -> Double
 sharpe rf ra sa = (ra - rf)/sa
 
+{-|@r2Beta rf rm r = (r - rf)/(rm - rf)@
+
+Map from rate to beta given a rf and rm
+-}
+r2Beta :: Double -> Double -> Double -> Double
+r2Beta rf rm r = (r - rf)/(rm - rf)
+
+{-|@beta2R rf rm b = rf + b*(rm - rf)@
+
+Map from beta to rate given a rf and rm
+-}
+beta2R :: Double -> Double -> Double -> Double
+beta2R rf rm b = rf + b*(rm - rf)

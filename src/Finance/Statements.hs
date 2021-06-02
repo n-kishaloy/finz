@@ -1,3 +1,4 @@
+
 {-|
 Module      : Finance.Statements
 Description : Implement __Statements__ modules for the __finz__ library
@@ -34,7 +35,7 @@ module Finance.Statements
 , Param (..), HasPU (..), HasPW (..), HasPE (..), HasPD (..)
 , eqlRec, notEqlRec, maybeEqlRec, notMaybeEqlRec
 , cleanRecord, cleanAccount, cleanNSetAccount, cleanNSetAccountVec
-, setAccount, reduceCompany
+, setAccount, reduceCompany, commonSizeAccount, commonSizeCompany
 , sortAccountVec, sortCompanyDocs, sortCheckCompany
 , balShBegin, balShEnd, profLoss, cashFl, mkAccount, splitAccount
 , BsTyp (..), PlTyp (..), CfTyp (..), Statuz (..)
@@ -44,7 +45,7 @@ module Finance.Statements
 , HasBalanceSheetEnd (..), HasProfitLoss (..), HasCashFlow (..)
 , Checker (..), Shaker (..), CheckShake (..), HasChk (..), HasShk (..)
 , HasChecker(..), accountToJson, jsonToAccount, companyToJson, jsonToCompany
-, FinType (..), FinDerived (..)
+, FinType (..), FinOthers (..)
 , checkBsMap, checkPlMap, checkCfMap
 , getEOMonth
 , credit, debit, transact, transactSeries
@@ -66,7 +67,7 @@ import Data.Text.Encoding (encodeUtf8)
 
 import qualified Data.Vector as V
 import Data.Vector.Algorithms.Merge (sortBy)
-import Data.Vector ((!))
+import Data.HashMap.Strict ((!),(!?))
 
 import Data.List (foldl')
 import qualified Data.Aeson as As
@@ -146,6 +147,11 @@ class (Show a, Eq a, Hashable a, Ord a, Enum a) => FinType a where
   setMap = (calcElem <$>) 
 
   typMap :: Hm.HashMap Text a
+
+  scaleMap :: Double -> Hm.HashMap a Double -> Hm.HashMap a Double
+  scaleMap r x = Hm.fromList $ (\(k,v) -> (k,v*r)) <$> Hm.toList x
+
+  commonSize :: Maybe (Hm.HashMap a Double) -> Maybe (Hm.HashMap a Double)
 
 
 data Statuz = Unset | Actual | Estimated deriving (Show, Eq)
@@ -291,11 +297,17 @@ makeFields ''ProfitLoss
 data CfTyp defines all entries that go in a Cash Flow Statement.
 -}
 data CfTyp = 
+  DepreciationAmortization      |
+  DeferredIncomeTaxes           |
   ChangeInventories             |
   ChangeReceivables             |
+  ChangePayables                |
   ChangeLiabilities             |
   ChangeProvisions              |
   OtherCfOperations             |
+  StockCompensationExpense      |
+  StockCompensationTaxBenefit   |
+  AccretionDebtDiscount         |
   CashFlowOperations            |
   InvestmentsPpe                |
   InvestmentsCapDevp            |
@@ -317,11 +329,7 @@ data CfTyp =
   DonorContribution             |
   OtherCfFinancing              |
   CashFlowFinancing             |
-  NetCashFlow                   |
-  Fcff                          |
-  Fcfs                          |
-  Fcfe                          |
-  Fcfd                 
+  NetCashFlow                   
   deriving (Eq, Show, Ord, Generic, Enum, Bounded)
 
 instance Hashable CfTyp
@@ -337,14 +345,20 @@ data CashFlow = CashFlow
 makeFields ''CashFlow
 
 
-data FinDerived = 
+data FinOthers = 
   Taxrate                         |
   CurrentRatio                    |
-  AcidRatio
+  AcidRatio                       |
+  DaysOfInventory                 |
+  InventoryTurnoverRatio          |
+  Fcff                            |
+  Fcfs                            |
+  Fcfe                            |
+  Fcfd                 
   deriving (Eq, Show, Ord, Generic, Enum, Bounded)
 
-instance Hashable FinDerived
-type FinDerivedMap = Hm.HashMap FinDerived Double
+instance Hashable FinOthers
+type FinOthersMap = Hm.HashMap FinOthers Double
 
 instance FinType BsTyp where 
   typList = enumFrom minBound::[BsTyp]
@@ -395,6 +409,9 @@ instance FinType BsTyp where
 
     ]
 
+  commonSize Nothing = Nothing
+  commonSize (Just x) = Just (scaleMap (1.0/y) x) where Just y = x !? Assets
+
 instance FinType PlTyp where 
   typList = enumFrom minBound::[PlTyp]
 
@@ -443,6 +460,9 @@ instance FinType PlTyp where
       )
     ]
 
+  commonSize Nothing = Nothing
+  commonSize (Just x) = Just (scaleMap (1.0/y) x) where Just y = x !? Revenue 
+
 
 instance FinType CfTyp where 
   typList = enumFrom minBound::[CfTyp]
@@ -466,23 +486,11 @@ instance FinType CfTyp where
       [CashFlowOperations, CashFlowInvestments, CashFlowFinancing],
       []
       )
-    , (Fcff,
-      [],
-      []
-      )
-    , (Fcfs,
-      [],
-      []
-      )
-    , (Fcfe,
-      [],
-      []
-      )
-    , (Fcfd,
-      [],
-      []
-      )
     ]
+
+  commonSize Nothing = Nothing
+  commonSize (Just x) = Just (scaleMap (1.0/y) x) where Just y= x !? NetCashFlow
+
 
 data Statement = Statement
   { statementDateBegin         :: Day
@@ -522,7 +530,7 @@ instance Approx CashFlow where
     (x ^. rec)  `eqlRec`  (y ^. rec)
      
 instance Approx Statement where 
-  x =~ y = undefined
+  _ =~ _ = undefined
 
 {-|
 Getter and Setter for BalanceSheet, ProfitLoss and CashFlow Items contained
@@ -623,7 +631,7 @@ data Account = Account
   , accountBalanceSheetEnd    :: Maybe BsMap
   , accountProfitLoss         :: Maybe PlMap
   , accountCashFlow           :: Maybe CfMap
-  , accountFinDeriv           :: FinDerivedMap
+  , accountFinOther           :: FinOthersMap
   } 
 
 makeFields ''Account
@@ -711,7 +719,7 @@ class FinType a => GetAccount a where
   x `updateBeginItems` (y:ys) = x !^% y >>= (`updateBeginItems` ys)
 
   stringToTyp :: Text -> Maybe a
-  stringToTyp s = Hm.lookup s typMap
+  stringToTyp = (typMap !?)
 
   recToJSON :: Show a =>  Hm.HashMap a Double -> Text
   recToJSON s = T.pack (concat (["{",ps,"}"]::[String])) where
@@ -757,19 +765,18 @@ instance Show Account where
 
 -- |DEPRECATED : This is Just proof of concept -- Not to be used.
 -- Use show instead
-prnx :: Account -> String
-prnx y = 
-  let 
-    prx :: FinType a => Maybe (Hm.HashMap a Double) -> Maybe String
-    prx Nothing = Just "Nothing\n"
-    prx (Just x) = concat <$> forM (Hm.toList x) (\u -> return $ show u ++ "\n")
-  in 
-    "************** Account ***********\n\n" ++
-    "Begin Date : " ++ show (y ^. dateBegin) ++ "\n" ++
-    "End Date   : " ++ show (y ^. dateEnd) ++ "\n" ++ 
-    (let Just v = prx $ y ^. balanceSheetBegin in v) ++
-    (let Just v = prx $ y ^. balanceSheetEnd in v) 
-
+-- prnx :: Account -> String
+-- prnx y = 
+--   let 
+--     prx :: FinType a => Maybe (Hm.HashMap a Double) -> Maybe String
+--     prx Nothing = Just "Nothing\n"
+--     prx (Just x) = concat <$> forM (Hm.toList x) (\u -> return $ show u ++ "\n")
+--   in 
+--     "************** Account ***********\n\n" ++
+--     "Begin Date : " ++ show (y ^. dateBegin) ++ "\n" ++
+--     "End Date   : " ++ show (y ^. dateEnd) ++ "\n" ++ 
+--     (let Just v = prx $ y ^. balanceSheetBegin in v) ++
+--     (let Just v = prx $ y ^. balanceSheetEnd in v) 
 
 instance Approx Account where
   x =~ y = 
@@ -856,16 +863,16 @@ profLoss x = ProfitLoss (x^.dateBegin) (x^.dateEnd) Actual <$> (x^.profitLoss)
 cashFl :: Account -> Maybe CashFlow
 cashFl x = CashFlow (x ^. dateBegin) (x ^. dateEnd) Actual <$> (x ^. cashFlow) 
 
-financeDeriv :: Maybe BsMap -> Maybe BsMap -> Maybe PlMap -> Maybe CfMap -> FinDerivedMap
-financeDeriv bB bE pl cf = Hm.empty 
+financeDeriv :: Maybe BsMap -> Maybe BsMap -> Maybe PlMap -> Maybe CfMap -> FinOthersMap -> FinOthersMap
+financeDeriv bB bE pl cf fm = fm
 
 -- |Combine Begin & End Balance Sheet, Profit Loss Statement and Cash Flow 
 -- Statement to create Account
-mkAccount :: Maybe BalanceSheet -> Maybe BalanceSheet -> Maybe ProfitLoss -> Maybe CashFlow -> Maybe Account
-mkAccount _ _ Nothing _ = Nothing
-mkAccount bsBeg bsEnd (Just pl) cf = 
+mkAccount :: Maybe BalanceSheet -> Maybe BalanceSheet -> Maybe ProfitLoss -> Maybe CashFlow -> FinOthersMap ->Maybe Account
+mkAccount _ _ Nothing _ _ = Nothing
+mkAccount bsBeg bsEnd (Just pl) cf fm = 
   if d1 == dtbs1 && d2 == dtbs2 && d1 == dtcf1 && d2 == dtcf2
-  then Just $ Account d1 d2 bsBg bsEn (Just (pl^.rec)) cfMp (financeDeriv bsBg bsEn (Just (pl^.rec)) cfMp)
+  then Just $ Account d1 d2 bsBg bsEn (Just (pl^.rec)) cfMp (financeDeriv bsBg bsEn (Just (pl^.rec)) cfMp fm)
   else Nothing
   where
     d1 = pl ^. dateBegin
@@ -885,8 +892,8 @@ mkAccount bsBeg bsEnd (Just pl) cf =
 
 -- |Split Account into its constituent Balance Sheets, Profit Loss Statement
 -- and Cash FLow Statement.
-splitAccount :: Account -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow)
-splitAccount x = (balShBegin x, balShEnd x, profLoss x, cashFl x)
+splitAccount :: Account -> (Maybe BalanceSheet, Maybe BalanceSheet, Maybe ProfitLoss, Maybe CashFlow, FinOthersMap)
+splitAccount x = (balShBegin x, balShEnd x, profLoss x, cashFl x, x ^. finOther)
 
 -- |@cleanRecord mp = Remove all 0 value items@
 cleanRecord :: FinType a => Hm.HashMap a Double -> Hm.HashMap a Double
@@ -894,7 +901,7 @@ cleanRecord = Hm.fromList . filter ((/=0.0).snd) . (second (fromInteger.round) <
 
 -- |@cleanAccount ac = Clean all items in Account from the HashMaps@
 cleanAccount :: Account -> Account
-cleanAccount ac = Account (ac ^. dateBegin) (ac ^. dateEnd) bB bE pl cf (ac ^. finDeriv) where
+cleanAccount ac = Account (ac ^. dateBegin) (ac ^. dateEnd) bB bE pl cf (ac ^. finOther) where
   bB  = cleanRecord <$> ac ^. balanceSheetBegin 
   bE  = cleanRecord <$> ac ^. balanceSheetEnd 
   pl  = cleanRecord <$> ac ^. profitLoss 
@@ -942,14 +949,14 @@ jAcc rz = do
     parseObj As.Null = Just Nothing
     parseObj _ = Nothing
 
-  (As.String dB) <- Hm.lookup "dateBegin" rz; dBeg <- getEOMonth dB
-  (As.String dE) <- Hm.lookup "dateEnd" rz; dEnd <- getEOMonth dE
-  bsB <- Hm.lookup "balanceSheetBegin" rz >>= parseObj 
-  bsE <- Hm.lookup "balanceSheetEnd" rz >>= parseObj 
-  plX <- Hm.lookup "profitLoss" rz >>= parseObj 
-  cfX <- Hm.lookup "cashFlow" rz >>= parseObj 
+  (As.String dB) <- rz !? "dateBegin" ; dBeg <- getEOMonth dB
+  (As.String dE) <- rz !? "dateEnd"; dEnd <- getEOMonth dE
+  bsB <- rz !? "balanceSheetBegin" >>= parseObj 
+  bsE <- rz !? "balanceSheetEnd" >>= parseObj 
+  plX <- rz !? "profitLoss" >>= parseObj 
+  cfX <- rz !? "cashFlow" >>= parseObj 
 
-  return $ Account dBeg dEnd bsB bsE plX cfX (financeDeriv bsB bsE plX cfX)
+  return $ Account dBeg dEnd bsB bsE plX cfX (financeDeriv bsB bsE plX cfX Hm.empty)
 
 -- |Convert JSON to Account
 jsonToAccount :: Text -> Maybe Account
@@ -1043,10 +1050,10 @@ companyToJson cp =
 jsonToCompany :: Text -> Maybe Company
 jsonToCompany s = do
   rz <- As.decodeStrict (encodeUtf8 s) :: Maybe (Hm.HashMap Text As.Value)
-  (As.String cd) <- Hm.lookup "code" rz
-  (As.Bool cns) <- Hm.lookup "consolidated" rz
+  (As.String cd) <- rz !? "code"
+  (As.Bool cns) <- rz !? "consolidated"
 
-  (As.Array dtz) <- Hm.lookup "docs" rz
+  (As.Array dtz) <- rz !? "docs"
   dz <- traverse jAcc ((\(As.Object x) -> x) <$> dtz) :: Maybe (V.Vector Account)
 
   let
@@ -1178,8 +1185,8 @@ isConsecutiveAccount x y =
 -- account0.dateEnd == account1.dateBegin && account0.dateEnd /~ None
 -- && account1.dateBegin /~ None
 checkAccountVec :: V.Vector Account -> Bool
-checkAccountVec vx = foldl' f (checkAccount (vx!0)) ([0..(length vx - 2)]::V.Vector Int) where
-  f y i = y && isConsecutiveAccount (vx!i) (vx!(i+1)) && checkAccount (vx!(i+1))
+checkAccountVec vx = foldl' f (checkAccount (vx V.! 0)) ([0..(length vx - 2)]::V.Vector Int) where
+  f y i = y && isConsecutiveAccount (vx V.! i) (vx V.! (i+1)) && checkAccount (vx V.! (i+1))
 
 -- |Check Account for consistency
 checkAccount :: Account -> Bool
@@ -1223,13 +1230,13 @@ reduceCompany (Company cd af cn d0 sp rt bt) =
   Company cd af cn (reduceAccountVec d0) sp rt bt
 
 setAccount :: Account -> Account
-setAccount (Account dB dE bB bE pl cf _) = Account dB dE bB1 bE1 pl1 cf1 fd1 
+setAccount (Account dB dE bB bE pl cf fd) = Account dB dE bB1 bE1 pl1 cf1 fd1 
   where
   bB1 = setMap bB 
   bE1 = setMap bE 
   pl1 = setMap pl 
   cf1 = setMap cf 
-  fd1 = financeDeriv bB1 bE1 pl1 cf1
+  fd1 = financeDeriv bB1 bE1 pl1 cf1 fd
 
 setAccountVec :: V.Vector Account -> V.Vector Account
 setAccountVec = (setAccount <$>)
@@ -1257,8 +1264,8 @@ intpAccount v0 = do
 -- performed here. If needed, plz use checkAccounts for check of 
 -- consistency of dates.
 sortAccountVec :: V.Vector Account -> V.Vector Account
-sortAccountVec v = (v!) . snd <$> V.modify (sortBy (comparing fst)) q
-  where q = (\i -> (v!i ^. dateEnd,i)) <$> V.fromList [0..(length v-1)]
+sortAccountVec v = (v V.!) . snd <$> V.modify (sortBy (comparing fst)) q
+  where q = (\i -> (v V.! i ^. dateEnd,i)) <$> V.fromList [0..(length v-1)]
 
 sortCompanyDocs :: Company -> Company
 sortCompanyDocs x = x & docs .~ sortAccountVec (x ^. docs)
@@ -1267,6 +1274,31 @@ sortCheckCompany :: Company -> Maybe Company
 sortCheckCompany x = do
   let v = x & docs .~ sortAccountVec (x ^. docs)
   if checkCompany v then Just v else Nothing
+
+commonSizeAccount:: Account -> Account
+commonSizeAccount ac = Account 
+  (ac ^. dateBegin) (ac ^. dateEnd) 
+  (commonSize $ ac ^. balanceSheetBegin) (commonSize $ ac ^. balanceSheetEnd)  
+  (commonSize $ ac ^. profitLoss) (commonSize $ ac ^. cashFlow) 
+  (ac ^. finOther)
+
+commonSizeCompany :: Company -> Company
+commonSizeCompany (Company cd af cn d0 sp rt bt) = 
+  Company cd af cn (commonSizeAccount <$> d0) sp rt bt
+
+r2BetaParam :: Double -> Double -> Param -> Param
+r2BetaParam rf rm (Param u w e d) = Param (f u) (f w) (f e) (f d) 
+  where f = F.r2Beta rf rm
+
+beta2RParam :: Double -> Double -> Param -> Param
+beta2RParam rf rm (Param u w e d) = Param (f u) (f w) (f e) (f d) 
+  where f = F.beta2R rf rm
+
+r2BetaTrend ::  Double -> Double -> F.TrendData Param -> F.TrendData Param
+r2BetaTrend rf rm = (second (r2BetaParam rf rm) <$>)
+
+beta2RTrend ::  Double -> Double -> F.TrendData Param -> F.TrendData Param
+beta2RTrend rf rm = (second (beta2RParam rf rm) <$>) 
 
 findFCFF :: Company -> Maybe Company
 findFCFF cp = undefined 
